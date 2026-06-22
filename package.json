@@ -1,0 +1,18 @@
+{
+  "name": "gmaopro",
+  "version": "1.0.0",
+  "private": true,
+
+  "workspaces": [
+    "frontend",
+    "backend"
+  ],
+
+  "scripts": {
+    "frontend": "npm run start -w frontend",
+    "backend": "npm run dev -w backend"
+  },
+
+  "license": "ISC",
+  "type": "commonjs"
+}
