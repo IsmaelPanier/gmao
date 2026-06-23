@@ -46,6 +46,20 @@ enum HousingType {
   MAISON
 }
 
+enum AssignmentStatus {
+  PENDING
+  ACCEPTED
+  REFUSED
+}
+
+enum TimeLogType {
+  START
+  PAUSE
+  RESUME
+  END
+}
+
+
 // ─────────────────────────────────────────────
 // Models
 // ─────────────────────────────────────────────
@@ -65,6 +79,8 @@ model User {
   refreshTokens      RefreshToken[]
   assignedInterventions InterventionAssignment[]
   createdInterventions  Intervention[]         @relation("CreatedBy")
+  timeLogs           InterventionTimeLog[]
+
 
   @@index([email])
   @@map("users")
@@ -142,6 +158,8 @@ model Intervention {
   client      Client                  @relation(fields: [clientId], references: [id])
   createdBy   User                    @relation("CreatedBy", fields: [createdById], references: [id])
   technicians InterventionAssignment[]
+  timeLogs    InterventionTimeLog[]
+
 
   @@index([status])
   @@index([scheduledDate])
@@ -155,6 +173,7 @@ model InterventionAssignment {
   interventionId String
   userId         String
   assignedAt     DateTime @default(now())
+  status         AssignmentStatus @default(PENDING)
 
   intervention Intervention @relation(fields: [interventionId], references: [id], onDelete: Cascade)
   user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -162,3 +181,17 @@ model InterventionAssignment {
   @@unique([interventionId, userId])
   @@map("intervention_assignments")
 }
+
+model InterventionTimeLog {
+  id             String      @id @default(uuid())
+  interventionId String
+  userId         String
+  type           TimeLogType
+  timestamp      DateTime    @default(now())
+  
+  intervention   Intervention @relation(fields: [interventionId], references: [id], onDelete: Cascade)
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("intervention_time_logs")
+}
+

@@ -90,4 +90,43 @@ export const InterventionsService = {
 
     return InterventionsRepository.delete(id);
   },
+
+  async accept(id: string, currentUser: JwtPayload) {
+    const intervention = await InterventionsService.findById(id, currentUser);
+    const assignment = intervention.technicians.find((t) => t.userId === currentUser.sub);
+    if (!assignment) throw AppError.forbidden("Vous n'êtes pas assigné à cette intervention.");
+    if (assignment.status !== "PENDING") throw AppError.unprocessable("Mission déjà acceptée ou refusée.");
+    return InterventionsRepository.accept(id, currentUser.sub);
+  },
+
+  async refuse(id: string, currentUser: JwtPayload) {
+    const intervention = await InterventionsService.findById(id, currentUser);
+    const assignment = intervention.technicians.find((t) => t.userId === currentUser.sub);
+    if (!assignment) throw AppError.forbidden("Vous n'êtes pas assigné à cette intervention.");
+    if (assignment.status !== "PENDING") throw AppError.unprocessable("Mission déjà acceptée ou refusée.");
+    return InterventionsRepository.refuse(id, currentUser.sub);
+  },
+
+  async timeLog(id: string, dto: { type: "START" | "PAUSE" | "RESUME" | "END" }, currentUser: JwtPayload) {
+    const intervention = await InterventionsService.findById(id, currentUser);
+    const assignment = intervention.technicians.find((t) => t.userId === currentUser.sub);
+    if (!assignment) throw AppError.forbidden("Vous n'êtes pas assigné à cette intervention.");
+    if (assignment.status !== "ACCEPTED") throw AppError.unprocessable("Vous devez accepter la mission avant de pointer.");
+
+    const log = await InterventionsRepository.timeLog(id, currentUser.sub, dto.type);
+
+    // Mettre à jour l'état de l'intervention en fonction du pointage
+    if (dto.type === "START") {
+      if (intervention.status !== "in_progress") {
+        await InterventionsRepository.update(id, { status: "in_progress" });
+      }
+    } else if (dto.type === "END") {
+      // Dans une version plus complexe on calculerait le temps exact ici, 
+      // et on ne mettrait `completed` que si tous les techniciens ont terminé.
+      // Pour l'instant, on clôture la mission.
+      await InterventionsRepository.update(id, { status: "completed" });
+    }
+
+    return log;
+  },
 };

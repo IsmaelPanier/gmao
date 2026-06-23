@@ -16,6 +16,7 @@ export const DashboardService = {
       recentInterventions,
       byTechnician,
       byMonth,
+      workload,
     ] = await Promise.all([
       prisma.intervention.count(),
 
@@ -62,18 +63,35 @@ export const DashboardService = {
         GROUP BY DATE_TRUNC('month', "scheduledDate")
         ORDER BY DATE_TRUNC('month', "scheduledDate") ASC
       `,
+
+      // Active assignments per technician (workload)
+      prisma.interventionAssignment.groupBy({
+        by: ["userId"],
+        _count: { userId: true },
+        where: {
+          intervention: { status: { in: [InterventionStatus.assigned, InterventionStatus.in_progress, InterventionStatus.waiting] } },
+        },
+        orderBy: { _count: { userId: "desc" } },
+      }),
     ]);
 
-    // Resolve technician names for productivity chart
-    const technicianIds = byTechnician.map((t) => t.userId);
+    // Resolve technician names for productivity and workload charts
+    const techIds = Array.from(new Set([...byTechnician.map((t) => t.userId), ...workload.map((w) => w.userId)]));
     const technicianUsers = await prisma.user.findMany({
-      where: { id: { in: technicianIds } },
+      where: { id: { in: techIds } },
       select: { id: true, name: true },
     });
 
+    const resolveName = (id: string) => technicianUsers.find((u) => u.id === id)?.name ?? "Unknown";
+
     const byTechnicianNamed = byTechnician.map((t) => ({
-      name: technicianUsers.find((u) => u.id === t.userId)?.name ?? "Unknown",
+      name: resolveName(t.userId),
       count: t._count.userId,
+    }));
+    
+    const teamWorkload = workload.map((w) => ({
+      name: resolveName(w.userId),
+      count: w._count.userId,
     }));
 
     // Compute stats
@@ -105,6 +123,7 @@ export const DashboardService = {
       avg_duration: avgDuration,
       by_month: byMonth.map((m) => ({ month: m.month, count: Number(m.count) })),
       by_technician: byTechnicianNamed,
+      team_workload: teamWorkload,
       recent: recentInterventions,
     };
   },

@@ -37,6 +37,18 @@ const InterventionsService = {
   async delete(id: string): Promise<void> {
     await api.delete(`/interventions/${id}`);
   },
+
+  async accept(id: string): Promise<void> {
+    await api.post(`/interventions/${id}/accept`);
+  },
+
+  async refuse(id: string): Promise<void> {
+    await api.post(`/interventions/${id}/refuse`);
+  },
+
+  async timeLog(id: string, type: "START" | "PAUSE" | "RESUME" | "END"): Promise<void> {
+    await api.post(`/interventions/${id}/time-log`, { type });
+  },
 };
 
 export default InterventionsService;

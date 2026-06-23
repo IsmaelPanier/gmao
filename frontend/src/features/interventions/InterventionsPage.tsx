@@ -30,7 +30,7 @@ export default function InterventionsPage() {
   const [searchParams] = useSearchParams();
   const [filters, setFilters] = useState({
     q: searchParams.get("q") || "",
-    status: searchParams.get("status") || "all",
+    status: searchParams.get("status") || "active",
     priority: searchParams.get("priority") || "all",
     clientId: searchParams.get("clientId") || "all",
     date: searchParams.get("date") || "",
@@ -51,7 +51,7 @@ export default function InterventionsPage() {
     ...(filters.status !== "all" && { status: filters.status }),
     ...(filters.priority !== "all" && { priority: filters.priority }),
     ...(filters.clientId !== "all" && { clientId: filters.clientId }),
-    ...(filters.date && { scheduledDate: filters.date }),
+    ...(filters.date && { dateFrom: filters.date, dateTo: filters.date }),
     page: filters.page,
     limit: PAGE_SIZE,
   };
@@ -224,6 +224,7 @@ export default function InterventionsPage() {
         <Select value={filters.status} onValueChange={(v) => setFilters({ ...filters, status: v, page: 1 })}>
           <SelectTrigger><SelectValue placeholder="Statut" /></SelectTrigger>
           <SelectContent>
+            <SelectItem value="active">Interventions actives</SelectItem>
             <SelectItem value="all">Tous les statuts</SelectItem>
             {Object.entries(STATUS_LABELS).map(([k, l]) => <SelectItem key={k} value={k}>{l}</SelectItem>)}
           </SelectContent>
@@ -235,6 +236,12 @@ export default function InterventionsPage() {
             {Object.entries(PRIORITY_LABELS).map(([k, l]) => <SelectItem key={k} value={k}>{l}</SelectItem>)}
           </SelectContent>
         </Select>
+        <Input 
+          type="date" 
+          value={filters.date} 
+          onChange={(e) => setFilters({ ...filters, date: e.target.value, page: 1 })} 
+          className="w-full text-muted-foreground"
+        />
       </div>
 
       {/* Table */}

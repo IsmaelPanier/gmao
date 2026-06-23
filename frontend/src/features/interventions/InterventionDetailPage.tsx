@@ -126,8 +126,8 @@ export default function InterventionDetailPage() {
             </div>
           </div>
 
-          {/* Status update */}
-          {allowedStatuses.length > 0 && (
+          {/* Status update (Managers only) */}
+          {allowedStatuses.length > 0 && isManager && (
             <div className="flex flex-col gap-1.5 min-w-[200px]">
               <Label className="text-xs font-bold uppercase tracking-wider">Changer le statut</Label>
               <Select
@@ -143,6 +143,41 @@ export default function InterventionDetailPage() {
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+          )}
+
+          {/* Technician Action Buttons */}
+          {user?.role === "technician" && (
+            <div className="flex flex-wrap items-center gap-2">
+              {(() => {
+                const myAssignment = intervention.technicians.find(t => t.userId === user.id);
+                if (!myAssignment) return null;
+
+                if (myAssignment.status === "PENDING") {
+                  return (
+                    <>
+                      <Button variant="outline" className="border-rose-200 text-rose-600 hover:bg-rose-50 hover:text-rose-700" onClick={() => InterventionsService.refuse(id!).then(() => { toast.success("Mission refusée"); qc.invalidateQueries({ queryKey: ["intervention", id] }); qc.invalidateQueries({ queryKey: ["dashboard-stats"] }); })}>Refuser</Button>
+                      <Button onClick={() => InterventionsService.accept(id!).then(() => { toast.success("Mission acceptée"); qc.invalidateQueries({ queryKey: ["intervention", id] }); })}>Accepter la mission</Button>
+                    </>
+                  );
+                }
+
+                if (myAssignment.status === "ACCEPTED") {
+                  if (intervention.status === "assigned" || intervention.status === "waiting") {
+                     return <Button onClick={() => InterventionsService.timeLog(id!, "START").then(() => { toast.success("Intervention démarrée"); qc.invalidateQueries({ queryKey: ["intervention", id] }); })}>▶ Démarrer l'intervention</Button>;
+                  }
+                  if (intervention.status === "in_progress") {
+                     // In a real app we'd query the latest log type, here we just allow pausing or finishing
+                     return (
+                       <>
+                         <Button variant="secondary" onClick={() => InterventionsService.timeLog(id!, "PAUSE").then(() => { toast.success("Intervention en pause"); qc.invalidateQueries({ queryKey: ["intervention", id] }); })}>⏸ Pause</Button>
+                         <Button onClick={() => InterventionsService.timeLog(id!, "END").then(() => { toast.success("Intervention terminée"); qc.invalidateQueries({ queryKey: ["intervention", id] }); qc.invalidateQueries({ queryKey: ["dashboard-stats"] }); })}>⏹ Terminer</Button>
+                       </>
+                     );
+                  }
+                }
+                return null;
+              })()}
             </div>
           )}
         </div>

@@ -51,6 +51,7 @@ export interface InterventionTechnician {
   userId: string;
   interventionId: string;
   assignedAt: string;
+  status: "PENDING" | "ACCEPTED" | "REFUSED";
   user: Pick<User, "id" | "name" | "email" | "phone" | "role">;
 }
 
@@ -91,6 +92,7 @@ export interface DashboardStats {
   avg_duration: number;
   by_month: Array<{ month: string; count: number }>;
   by_technician: Array<{ name: string; count: number }>;
+  team_workload?: Array<{ name: string; count: number }>;
   recent: Intervention[];
 }
 

@@ -42,3 +42,8 @@ export const listInterventionsSchema = z.object({
 export type CreateInterventionDto = z.infer<typeof createInterventionSchema>;
 export type UpdateInterventionDto = z.infer<typeof updateInterventionSchema>;
 export type ListInterventionsQuery = z.infer<typeof listInterventionsSchema>;
+
+export const timeLogSchema = z.object({
+  type: z.enum(["START", "PAUSE", "RESUME", "END"]),
+});
+export type TimeLogDto = z.infer<typeof timeLogSchema>;

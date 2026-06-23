@@ -29,4 +29,19 @@ export const InterventionsController = {
       res.json(success(null, "Intervention deleted"));
     } catch (err) { next(err); }
   },
+  async accept(req: Request, res: Response, next: NextFunction) {
+    try {
+      res.json(success(await InterventionsService.accept(req.params.id as string, req.user!), "Mission acceptée"));
+    } catch (err) { next(err); }
+  },
+  async refuse(req: Request, res: Response, next: NextFunction) {
+    try {
+      res.json(success(await InterventionsService.refuse(req.params.id as string, req.user!), "Mission refusée"));
+    } catch (err) { next(err); }
+  },
+  async timeLog(req: Request, res: Response, next: NextFunction) {
+    try {
+      res.json(success(await InterventionsService.timeLog(req.params.id as string, req.body, req.user!), "Pointage enregistré"));
+    } catch (err) { next(err); }
+  },
 };

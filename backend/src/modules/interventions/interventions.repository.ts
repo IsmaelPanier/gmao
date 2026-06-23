@@ -25,7 +25,11 @@ export const InterventionsRepository = {
           { address: { contains: q, mode: "insensitive" } },
         ],
       }),
-      ...(status && { status: status as InterventionStatus }),
+      ...(status === "active" 
+        ? { status: { notIn: [InterventionStatus.completed, InterventionStatus.cancelled] } } 
+        : status 
+        ? { status: status as InterventionStatus } 
+        : {}),
       ...(priority && { priority: priority as InterventionPriority }),
       ...(clientId && { clientId }),
       ...(query.technicianId && {
@@ -121,5 +125,28 @@ export const InterventionsRepository = {
     const parts = last.number.split("-");
     const seq = parseInt(parts[2] || "0") + 1;
     return `INT-${year}-${seq.toString().padStart(3, "0")}`;
+  },
+
+  async accept(interventionId: string, userId: string) {
+    return prisma.interventionAssignment.update({
+      where: { interventionId_userId: { interventionId, userId } },
+      data: { status: "ACCEPTED" },
+    });
+  },
+
+  async refuse(interventionId: string, userId: string) {
+    return prisma.interventionAssignment.update({
+      where: { interventionId_userId: { interventionId, userId } },
+      data: { status: "REFUSED" },
+    });
+  },
+
+  async timeLog(interventionId: string, userId: string, type: "START" | "PAUSE" | "RESUME" | "END") {
+    return prisma.$transaction(async (tx) => {
+      const log = await tx.interventionTimeLog.create({
+        data: { interventionId, userId, type },
+      });
+      return log;
+    });
   },
 };

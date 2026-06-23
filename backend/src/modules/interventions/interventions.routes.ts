@@ -3,7 +3,7 @@ import { InterventionsController } from "./interventions.controller";
 import { authenticate } from "../../middlewares/auth.middleware";
 import { requireRole } from "../../middlewares/rbac.middleware";
 import { validate } from "../../middlewares/validate.middleware";
-import { createInterventionSchema, updateInterventionSchema, listInterventionsSchema } from "./interventions.dto";
+import { createInterventionSchema, updateInterventionSchema, listInterventionsSchema, timeLogSchema } from "./interventions.dto";
 
 const router = Router();
 router.use(authenticate);
@@ -20,5 +20,10 @@ router.patch("/:id", validate(updateInterventionSchema), InterventionsController
 
 // Only admins and managers can delete
 router.delete("/:id", requireRole("admin", "manager"), InterventionsController.remove);
+
+// Technician quick actions
+router.post("/:id/accept", InterventionsController.accept);
+router.post("/:id/refuse", InterventionsController.refuse);
+router.post("/:id/time-log", validate(timeLogSchema), InterventionsController.timeLog);
 
 export default router;
