@@ -2,7 +2,7 @@ import React, { useRef, useState } from "react";
 import { useSyncStore } from "@/store/useSyncStore";
 import { Camera, Image as ImageIcon, UploadCloud, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { fetchApi } from "@/lib/api";
+import api from "@/services/api";
 import { toast } from "sonner";
 
 interface MediaUploadProps {
@@ -32,33 +32,27 @@ export function MediaUpload({ interventionId, onUploadSuccess }: MediaUploadProp
 
     try {
       if (isOnline) {
-        // Upload immediately
         const formData = new FormData();
         formData.append("file", fileToUpload);
-        
-        // Mock API call to files route
-        await fetchApi("/api/files/upload", {
-          method: "POST",
-          body: formData as any, // fetchApi might need adjustment to handle FormData, but standard fetch does
+        formData.append("type", "PHOTO");
+        await api.post(`/api/files/interventions/${interventionId}`, formData, {
+          headers: { "Content-Type": "multipart/form-data" },
         });
         toast.success("Média envoyé avec succès !");
         onUploadSuccess?.();
       } else {
-        // We can't serialize a File object into JSON easily, so we could read it as Base64 for the sync queue.
-        // For this demo, we'll convert to Base64 and store it in the queue.
         const reader = new FileReader();
         reader.readAsDataURL(fileToUpload);
         reader.onloadend = () => {
-          const base64data = reader.result;
           addAction({
             type: "UPLOAD_MEDIA",
-            endpoint: "/api/files/upload-base64",
+            endpoint: `/api/files/interventions/${interventionId}`,
             method: "POST",
             payload: {
               interventionId,
               fileName: fileToUpload.name,
               fileType: fileToUpload.type,
-              data: base64data,
+              data: reader.result,
             },
           });
         };

@@ -20,8 +20,8 @@ export default function LoginPage() {
   const location = useLocation();
   const from = (location.state as any)?.from ?? "/";
 
-  const [email, setEmail] = useState("admin@gmao.fr");
-  const [password, setPassword] = useState("Admin1234!");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -57,7 +57,7 @@ export default function LoginPage() {
               <Wrench className="w-5 h-5 text-white" strokeWidth={2.5} />
             </div>
             <div>
-              <div className="font-bold text-lg leading-none">GMAO Pro</div>
+              <div className="font-bold text-lg leading-none">TEX Pro</div>
               <div className="text-[10px] uppercase tracking-[0.2em] text-white/50 mt-0.5">Field Service Management</div>
             </div>
           </div>
@@ -88,7 +88,7 @@ export default function LoginPage() {
             </div>
           </div>
 
-          <div className="text-xs text-white/30">© 2026 GMAO Pro. Tous droits réservés.</div>
+          <div className="text-xs text-white/30">© 2026 TEX Pro. Tous droits réservés.</div>
         </div>
       </div>
 
@@ -100,7 +100,7 @@ export default function LoginPage() {
             <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
               <Wrench className="w-4 h-4 text-white" strokeWidth={2.5} />
             </div>
-            <span className="font-bold text-lg">GMAO Pro</span>
+            <span className="font-bold text-lg">TEX Pro</span>
           </div>
 
           <div className="mb-8">

@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { io, Socket } from "socket.io-client";
 import { useAuth } from "@/features/auth/AuthContext";
-import { fetchApi } from "@/lib/api";
+import api from "@/services/api";
 import { toast } from "sonner";
 
 interface Notification {
@@ -33,8 +33,8 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
 
   const fetchNotifications = async () => {
     try {
-      const res = await fetchApi("/api/notifications?limit=50");
-      setNotifications(res.data);
+      const res = await api.get("/api/notifications?limit=50");
+      setNotifications(res.data.data);
     } catch (err) {
       console.error("Failed to fetch notifications", err);
     }
@@ -69,15 +69,12 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
       };
     } else {
       setNotifications([]);
-      if (socket) {
-        socket.disconnect();
-      }
     }
   }, [user]);
 
   const markAsRead = async (id: string) => {
     try {
-      await fetchApi(`/api/notifications/${id}/read`, { method: "POST" });
+      await api.post(`/api/notifications/${id}/read`);
       setNotifications((prev) =>
         prev.map((n) => (n.id === id ? { ...n, isRead: true } : n))
       );
@@ -88,7 +85,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
 
   const markAllAsRead = async () => {
     try {
-      await fetchApi("/api/notifications/mark-all-read", { method: "POST" });
+      await api.post("/api/notifications/mark-all-read");
       setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
     } catch (err) {
       console.error(err);

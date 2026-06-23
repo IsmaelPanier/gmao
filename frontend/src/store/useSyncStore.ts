@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import { fetchApi } from "@/lib/api";
+import api from "@/services/api";
 import { toast } from "sonner";
 
 export interface SyncAction {
@@ -24,6 +24,8 @@ interface SyncStore {
   clearActions: () => void;
   syncPendingActions: () => Promise<void>;
 }
+
+const MAX_RETRIES = 3;
 
 export const useSyncStore = create<SyncStore>()(
   persist(
@@ -66,7 +68,9 @@ export const useSyncStore = create<SyncStore>()(
         const { actions, isOnline, removeAction } = get();
         if (!isOnline) return;
 
-        const pendingActions = actions.filter((a) => a.status === "PENDING" || a.status === "FAILED");
+        const pendingActions = actions.filter(
+          (a) => (a.status === "PENDING" || a.status === "FAILED") && a.retryCount < MAX_RETRIES
+        );
         if (pendingActions.length === 0) return;
 
         // Mark as syncing
@@ -82,9 +86,10 @@ export const useSyncStore = create<SyncStore>()(
           try {
             // For file uploads (FormData can't be easily serialized, but we serialize base64 to avoid limits for now, 
             // though standard approaches use IndexedDB for blobs. Here we assume payload is JSON).
-            await fetchApi(action.endpoint, {
+            await api({
+              url: action.endpoint,
               method: action.method,
-              body: action.payload ? JSON.stringify(action.payload) : undefined,
+              data: action.payload,
             });
             
             removeAction(action.id);

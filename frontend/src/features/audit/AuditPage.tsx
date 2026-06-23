@@ -1,6 +1,6 @@
 import React from "react";
 import { useQuery } from "@tanstack/react-query";
-import { fetchApi } from "@/lib/api";
+import api from "@/services/api";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { format } from "date-fns";
@@ -11,7 +11,10 @@ import { Badge } from "@/components/ui/badge";
 export default function AuditPage() {
   const { data, isLoading } = useQuery({
     queryKey: ["audit-logs"],
-    queryFn: () => fetchApi("/api/audit?limit=100"),
+    queryFn: async () => {
+      const { data } = await api.get("/api/audit?limit=100");
+      return data;
+    },
   });
 
   const getActionColor = (action: string) => {

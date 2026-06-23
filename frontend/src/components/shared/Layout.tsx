@@ -55,7 +55,7 @@ function SidebarContent({ onClose }: { onClose?: () => void }) {
           <Wrench className="w-4 h-4 text-primary-foreground" strokeWidth={2.5} />
         </div>
         <div className="min-w-0">
-          <div className="font-bold text-sm leading-none">GMAO Pro</div>
+          <div className="font-bold text-sm leading-none">TEX Pro</div>
           <div className="text-[9px] uppercase tracking-[0.2em] text-muted-foreground mt-1">Field Service</div>
         </div>
         {onClose && (
@@ -165,7 +165,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           </Button>
           <div className="flex items-center gap-2">
             <Wrench className="w-4 h-4 text-primary" />
-            <span className="font-bold text-sm">GMAO Pro</span>
+            <span className="font-bold text-sm">TEX Pro</span>
           </div>
         </header>
 

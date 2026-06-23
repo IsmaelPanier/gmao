@@ -4,13 +4,12 @@ import dayGridPlugin from "@fullcalendar/daygrid";
 import timeGridPlugin from "@fullcalendar/timegrid";
 import interactionPlugin from "@fullcalendar/interaction";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { fetchApi } from "@/lib/api";
+import api from "@/services/api";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { Card } from "@/components/ui/card";
 import { Calendar as CalendarIcon } from "lucide-react";
 import { EventDropArg } from "@fullcalendar/core";
-import { EventResizeDoneArg } from "@fullcalendar/interaction";
 
 export default function AgendaPage() {
   const navigate = useNavigate();
@@ -19,17 +18,17 @@ export default function AgendaPage() {
 
   const { data, isLoading } = useQuery({
     queryKey: ["interventions"],
-    queryFn: () => fetchApi("/api/interventions?limit=500"),
+    queryFn: async () => {
+      const { data } = await api.get("/api/interventions?limit=500");
+      return data;
+    },
   });
 
   const updateScheduleMutation = useMutation({
     mutationFn: (args: { id: string; scheduledDate: string; scheduledTime: string }) =>
-      fetchApi(`/api/interventions/${args.id}`, {
-        method: "PATCH",
-        body: JSON.stringify({
-          scheduledDate: args.scheduledDate,
-          scheduledTime: args.scheduledTime,
-        }),
+      api.patch(`/api/interventions/${args.id}`, {
+        scheduledDate: args.scheduledDate,
+        scheduledTime: args.scheduledTime,
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["interventions"] });
@@ -123,7 +122,7 @@ export default function AgendaPage() {
               }}
               locale="fr"
               events={events}
-              editable={true} // Enables Drag & Drop
+              editable={true}
               droppable={true}
               eventDrop={handleEventDrop}
               eventClick={handleEventClick}
@@ -132,7 +131,7 @@ export default function AgendaPage() {
               slotMaxTime="20:00:00"
               allDaySlot={false}
               businessHours={{
-                daysOfWeek: [1, 2, 3, 4, 5, 6], // Monday - Saturday
+                daysOfWeek: [1, 2, 3, 4, 5, 6],
                 startTime: "08:00",
                 endTime: "18:00",
               }}
@@ -141,41 +140,6 @@ export default function AgendaPage() {
           </div>
         )}
       </Card>
-      
-      {/* Basic styles to override FullCalendar defaults to match Tailwind/shadcn */}
-      <style dangerouslySetInnerHTML={{__html: `
-        .fc {
-          --fc-border-color: hsl(var(--border));
-          --fc-button-bg-color: hsl(var(--primary));
-          --fc-button-border-color: hsl(var(--primary));
-          --fc-button-hover-bg-color: hsl(var(--primary) / 0.9);
-          --fc-button-hover-border-color: hsl(var(--primary) / 0.9);
-          --fc-button-active-bg-color: hsl(var(--primary));
-          --fc-button-active-border-color: hsl(var(--primary));
-          --fc-event-bg-color: hsl(var(--primary));
-          --fc-event-border-color: hsl(var(--primary));
-          --fc-today-bg-color: hsl(var(--accent) / 0.5);
-          font-family: inherit;
-        }
-        .fc-theme-standard td, .fc-theme-standard th {
-          border-color: hsl(var(--border));
-        }
-        .fc-toolbar-title {
-          font-size: 1.25rem !important;
-          font-weight: 600 !important;
-        }
-        .fc-event {
-          border-radius: 4px;
-          padding: 2px 4px;
-          font-size: 0.75rem;
-          box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
-          transition: transform 0.1s;
-        }
-        .fc-event:hover {
-          transform: scale(1.02);
-          z-index: 10 !important;
-        }
-      `}} />
     </div>
   );
 }
