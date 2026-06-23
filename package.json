@@ -1,18 +1,19 @@
 {
-  "name": "gmaopro",
+  "name": "gmao-pro",
   "version": "1.0.0",
   "private": true,
-
   "workspaces": [
-    "frontend",
-    "backend"
+    "backend",
+    "frontend"
   ],
-
   "scripts": {
-    "frontend": "npm run start -w frontend",
-    "backend": "npm run dev -w backend"
+    "dev": "concurrently \"npm run dev -w backend\" \"npm run dev -w frontend\"",
+    "build": "npm run build -w backend && npm run build -w frontend",
+    "backend": "npm run dev -w backend",
+    "frontend": "npm run dev -w frontend"
   },
-
-  "license": "ISC",
-  "type": "commonjs"
+  "devDependencies": {
+    "concurrently": "^9.1.0"
+  },
+  "license": "ISC"
 }
