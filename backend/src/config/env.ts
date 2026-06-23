@@ -14,6 +14,14 @@ const envSchema = z.object({
   JWT_REFRESH_EXPIRES_IN: z.string().default("7d"),
   FRONTEND_URL: z.string().url().default("http://localhost:5173"),
   LOG_LEVEL: z.enum(["trace", "debug", "info", "warn", "error", "fatal"]).default("info"),
+  
+  // S3 / MinIO
+  MINIO_ENDPOINT: z.string().default("localhost"),
+  MINIO_PORT: z.coerce.number().default(9000),
+  MINIO_USE_SSL: z.enum(["true", "false"]).transform((v) => v === "true").default("false"),
+  MINIO_ACCESS_KEY: z.string().default("gmao_admin"),
+  MINIO_SECRET_KEY: z.string().default("gmao_secret_minio"),
+  MINIO_BUCKET_NAME: z.string().default("gmao-media"),
 });
 
 const parsed = envSchema.safeParse(process.env);

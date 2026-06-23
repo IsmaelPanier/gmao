@@ -38,16 +38,18 @@ function Skeleton({ className }: { className?: string }) {
   return <div className={`skeleton rounded-md ${className}`} />;
 }
 
+import { MockQRCodeScanner } from "@/components/shared/MockQRCodeScanner";
+import { useSyncStore } from "@/store/useSyncStore";
+
 // ─── Dashboard vue Technicien ─────────────────────────────────
 function TechnicianDashboard({ user }: { user: User }) {
   const today = new Date().toISOString().slice(0, 10);
+  const { isOnline, actions } = useSyncStore();
+  const pendingSyncs = actions.filter(a => a.status === "PENDING" || a.status === "FAILED").length;
+  
   const { data: todayData } = useQuery({
     queryKey: ["interventions", { date: today, status: "active" }],
     queryFn: () => InterventionsService.list({ dateFrom: today, dateTo: today, limit: 50 }),
-  });
-  const { data: pendingData } = useQuery({
-    queryKey: ["interventions", { status: "pending", limit: 5 }],
-    queryFn: () => InterventionsService.list({ status: "assigned", limit: 5 }),
   });
   const { data: inProgressData } = useQuery({
     queryKey: ["interventions", { status: "in_progress" }],
@@ -55,7 +57,6 @@ function TechnicianDashboard({ user }: { user: User }) {
   });
 
   const todayCount = todayData?.total ?? 0;
-  const pendingCount = pendingData?.total ?? 0;
   const inProgressCount = inProgressData?.total ?? 0;
 
   // Missions du jour + en cours
@@ -65,60 +66,86 @@ function TechnicianDashboard({ user }: { user: User }) {
   ].filter((v, i, a) => a.findIndex(x => x.id === v.id) === i).slice(0, 8);
 
   return (
-    <div className="space-y-8 animate-fade-in" data-testid="dashboard-technician">
-      <div>
-        <div className="text-xs font-bold uppercase tracking-[0.2em] text-muted-foreground">Espace Technicien</div>
-        <h1 className="text-4xl font-bold tracking-tight mt-1">Bonjour, {user.name.split(" ")[0]}.</h1>
-        <p className="text-muted-foreground mt-2">{formatDate(new Date())} — Prêt pour votre journée sur le terrain ?</p>
+    <div className="space-y-6 animate-fade-in pb-20" data-testid="dashboard-technician">
+      <div className="flex items-center justify-between">
+        <div>
+          <div className="text-xs font-bold uppercase tracking-[0.2em] text-muted-foreground">Espace Technicien</div>
+          <h1 className="text-3xl font-bold tracking-tight mt-1">Bonjour, {user.name.split(" ")[0]}.</h1>
+        </div>
+        <div className="flex flex-col items-end gap-1">
+          <span className={`text-xs px-2 py-1 rounded-full font-medium ${isOnline ? 'bg-green-100 text-green-700' : 'bg-rose-100 text-rose-700'}`}>
+            {isOnline ? "En ligne" : "Hors ligne"}
+          </span>
+          {!isOnline && pendingSyncs > 0 && (
+            <span className="text-[10px] text-muted-foreground">{pendingSyncs} action(s) en attente</span>
+          )}
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="mt-4">
+        <MockQRCodeScanner />
+      </div>
+
+      <div className="grid grid-cols-2 gap-4 mt-6">
         <Link to={`/interventions?date=${today}`} className="block transition-transform hover:scale-[1.02]">
-          <StatCard label="Aujourd'hui" value={todayCount} sub="Missions planifiées" icon={Calendar} color="bg-primary" />
+          <div className="bg-card border rounded-xl p-4 flex flex-col items-center justify-center text-center shadow-sm h-32">
+            <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center mb-2">
+              <Calendar className="w-5 h-5 text-primary" />
+            </div>
+            <div className="text-2xl font-bold">{todayCount}</div>
+            <div className="text-xs text-muted-foreground font-medium mt-1">Missions du jour</div>
+          </div>
         </Link>
         <Link to="/interventions?status=in_progress" className="block transition-transform hover:scale-[1.02]">
-          <StatCard label="En cours" value={inProgressCount} sub="Missions actives" icon={Activity} color="bg-amber-500" />
-        </Link>
-        <Link to="/interventions?status=assigned" className="block transition-transform hover:scale-[1.02]">
-          <StatCard label="Assignées" value={pendingCount} sub="Nouvelles assignations" icon={AlertTriangle} color="bg-rose-600" />
+          <div className="bg-card border rounded-xl p-4 flex flex-col items-center justify-center text-center shadow-sm h-32">
+            <div className="w-10 h-10 rounded-full bg-amber-500/10 flex items-center justify-center mb-2">
+              <Activity className="w-5 h-5 text-amber-600" />
+            </div>
+            <div className="text-2xl font-bold">{inProgressCount}</div>
+            <div className="text-xs text-muted-foreground font-medium mt-1">En cours</div>
+          </div>
         </Link>
       </div>
 
-      <Card>
-        <CardHeader className="pb-3">
+      <Card className="mt-6 border-none shadow-md overflow-hidden rounded-xl">
+        <CardHeader className="bg-muted/30 pb-3 border-b">
           <div className="flex items-center justify-between">
-            <div className="text-xs font-bold uppercase tracking-[0.15em] text-muted-foreground flex items-center gap-2">
-              <Calendar className="w-4 h-4" />
-              Vos missions du jour
+            <div className="font-bold flex items-center gap-2">
+              <Calendar className="w-4 h-4 text-primary" />
+              Prochaines interventions
             </div>
-            <Link to="/interventions" className="text-xs text-primary hover:underline flex items-center gap-1">
-              Voir toutes <ArrowRight className="w-3 h-3" />
-            </Link>
           </div>
         </CardHeader>
-        <CardContent className="pt-0">
+        <CardContent className="p-0">
           <div className="divide-y divide-border">
             {recentMissions.length === 0 ? (
-              <div className="py-8 text-center text-muted-foreground text-sm">Aucune mission planifiée pour aujourd'hui</div>
+              <div className="py-8 text-center text-muted-foreground text-sm">Votre journée est terminée ! 🎉</div>
             ) : (
               recentMissions.map((item) => (
                 <Link
                   key={item.id}
                   to={`/interventions/${item.id}`}
-                  className="flex items-center justify-between gap-4 py-4 hover:bg-muted/30 -mx-6 px-6 transition-colors"
+                  className="flex flex-col gap-3 p-4 hover:bg-muted/30 transition-colors"
                 >
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="font-mono text-xs text-muted-foreground">{item.number}</span>
+                  <div className="flex justify-between items-start">
+                    <div className="flex items-center gap-2">
                       <StatusBadge status={item.status} />
+                      <span className="font-mono text-xs text-muted-foreground">{item.number}</span>
                     </div>
-                    <div className="text-sm font-semibold truncate">{item.type}</div>
-                    <div className="text-xs text-muted-foreground mt-0.5">
+                    {item.scheduledTime && <span className="font-bold text-sm bg-primary/10 text-primary px-2 py-0.5 rounded">⏰ {item.scheduledTime}</span>}
+                  </div>
+                  
+                  <div>
+                    <div className="text-base font-bold line-clamp-1">{item.type}</div>
+                    <div className="text-sm text-muted-foreground mt-1 flex items-center gap-1.5">
+                      <Users className="w-3.5 h-3.5" />
                       {item.client.firstName} {item.client.lastName}
-                      {item.scheduledTime && <span className="ml-2 font-medium text-primary">⏰ {item.scheduledTime}</span>}
                     </div>
                   </div>
-                  <Button variant="secondary" size="sm">Consulter</Button>
+                  
+                  <div className="w-full mt-2">
+                    <Button variant="outline" className="w-full font-semibold">Ouvrir la mission</Button>
+                  </div>
                 </Link>
               ))
             )}
@@ -145,6 +172,23 @@ export default function DashboardPage() {
   // La vue technicien n'a PAS besoin des stats admin
   if (user?.role === "technician") {
     return <TechnicianDashboard user={user} />;
+  }
+
+  // Skeleton pendant chargement pour admin/manager
+  if (isLoading || !stats) {
+    return (
+      <div className="space-y-6 animate-fade-in">
+        <div>
+          <Skeleton className="h-4 w-32 mb-2" />
+          <Skeleton className="h-10 w-64" />
+          <Skeleton className="h-4 w-48 mt-2" />
+        </div>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-32" />)}
+        </div>
+        <Skeleton className="h-80" />
+      </div>
+    );
   }
 
   // ==== VUE MANAGER / ADMIN ====

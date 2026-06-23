@@ -2,9 +2,12 @@ import { createApp } from "./app";
 import { env } from "./config/env";
 import { logger } from "./config/logger";
 import prisma from "./config/database";
+import { initSocket } from "./modules/notifications/socket";
+import http from "http";
 
 async function bootstrap() {
   const app = createApp();
+  const server = http.createServer(app);
 
   // Test DB connection
   try {
@@ -15,7 +18,10 @@ async function bootstrap() {
     process.exit(1);
   }
 
-  const server = app.listen(env.PORT, () => {
+  // Initialize WebSockets
+  initSocket(server);
+
+  server.listen(env.PORT, () => {
     logger.info(`🚀 GMAO API running on http://localhost:${env.PORT}`);
     logger.info(`   Environment: ${env.NODE_ENV}`);
   });

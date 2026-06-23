@@ -9,11 +9,12 @@ import { ROLE_LABELS } from "@/lib/constants";
 import { getInitials } from "@/lib/utils";
 import {
   Wrench, LayoutDashboard, ClipboardList, Users, Briefcase,
-  Calendar, UserCog, LogOut, Menu, X, ChevronRight
+  Calendar, UserCog, LogOut, Menu, X, ChevronRight, ShieldAlert
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import type { Role } from "@/types";
+import NotificationBell from "@/features/notifications/NotificationBell";
 
 interface NavItem {
   to: string;
@@ -30,6 +31,7 @@ const NAV_ITEMS: NavItem[] = [
   { to: "/planning", label: "Planning", icon: Calendar, roles: ["admin", "manager", "technician"] },
   { to: "/clients", label: "Clients", icon: Users, roles: ["admin", "manager"] },
   { to: "/users", label: "Équipe (Utilisateurs)", icon: UserCog, roles: ["admin", "manager"] },
+  { to: "/audit", label: "Audit & Sécurité", icon: ShieldAlert, roles: ["admin"] },
 ];
 
 function SidebarContent({ onClose }: { onClose?: () => void }) {
@@ -96,11 +98,12 @@ function SidebarContent({ onClose }: { onClose?: () => void }) {
 
       <Separator />
 
-      {/* User */}
-      <div className="p-3">
+        {/* User */}
+      <div className="p-3 flex items-center gap-2">
+        <NotificationBell />
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <button className="w-full flex items-center gap-3 p-2 rounded-md hover:bg-accent transition-colors text-left">
+            <button className="flex-1 flex items-center gap-3 p-2 rounded-md hover:bg-accent transition-colors text-left min-w-0">
               <Avatar className="h-8 w-8 flex-shrink-0">
                 <AvatarFallback className="bg-primary text-primary-foreground text-xs font-bold">
                   {getInitials(user.name)}

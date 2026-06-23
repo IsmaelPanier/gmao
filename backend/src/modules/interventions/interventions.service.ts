@@ -3,6 +3,7 @@ import { InterventionsRepository } from "./interventions.repository";
 import { CreateInterventionDto, ListInterventionsQuery, UpdateInterventionDto } from "./interventions.dto";
 import { JwtPayload } from "../../shared/types";
 import { InterventionStatus } from "@prisma/client";
+import { NotificationsService } from "../notifications/notifications.service";
 
 // Valid status transitions
 const STATUS_TRANSITIONS: Record<InterventionStatus, InterventionStatus[]> = {
@@ -36,7 +37,22 @@ export const InterventionsService = {
 
   async create(dto: CreateInterventionDto, currentUser: JwtPayload) {
     const number = await InterventionsRepository.getLastNumber();
-    return InterventionsRepository.create(dto, currentUser.sub, number);
+    const intervention = await InterventionsRepository.create(dto, currentUser.sub, number);
+    
+    // Notifications si assignation immédiate
+    if (dto.technicianIds && dto.technicianIds.length > 0) {
+      for (const techId of dto.technicianIds) {
+        NotificationsService.sendNotification({
+          userId: techId,
+          type: "INFO",
+          title: "Nouvelle Mission",
+          message: `Vous avez été assigné à l'intervention ${number}`,
+          link: `/interventions/${intervention.id}`,
+        });
+      }
+    }
+    
+    return intervention;
   },
 
   async update(id: string, dto: UpdateInterventionDto, currentUser: JwtPayload) {
@@ -57,6 +73,16 @@ export const InterventionsService = {
         if (!allowedForTech.includes(dto.status)) {
           throw AppError.forbidden("Technicians can only set status to in_progress, waiting or completed");
         }
+        
+        // Notification for manager
+        NotificationsService.sendNotification({
+          userId: intervention.createdById,
+          type: dto.status === "completed" ? "SUCCESS" : "INFO",
+          title: "Changement de statut",
+          message: `L'intervention ${intervention.number} est passée à ${dto.status}`,
+          link: `/interventions/${intervention.id}`,
+        });
+
         // Strip non-status fields for technicians
         return InterventionsRepository.update(id, { status: dto.status as InterventionStatus });
       }
@@ -76,7 +102,24 @@ export const InterventionsService = {
        dto.status = "assigned";
     }
 
-    return InterventionsRepository.update(id, dto);
+    const updated = await InterventionsRepository.update(id, dto);
+
+    // Notifications pour les nouveaux assignés (si modifiés)
+    if (dto.technicianIds) {
+      const oldTechs = intervention.technicians.map((t) => t.userId);
+      const newTechs = dto.technicianIds.filter((tId) => !oldTechs.includes(tId));
+      for (const techId of newTechs) {
+        NotificationsService.sendNotification({
+          userId: techId,
+          type: "INFO",
+          title: "Nouvelle Mission",
+          message: `Vous avez été assigné à l'intervention ${intervention.number}`,
+          link: `/interventions/${intervention.id}`,
+        });
+      }
+    }
+
+    return updated;
   },
 
   async delete(id: string) {

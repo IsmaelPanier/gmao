@@ -46,12 +46,19 @@ export const UsersRepository = {
     return prisma.user.findUnique({ where: { id }, select: SELECT_USER });
   },
 
+  async findByEmail(email: string) {
+    return prisma.user.findUnique({ where: { email }, select: SELECT_USER });
+  },
+
   async create(data: any) {
     return prisma.user.create({ data, select: SELECT_USER });
   },
 
   async update(id: string, dto: UpdateUserDto) {
-    return prisma.user.update({ where: { id }, data: dto, select: SELECT_USER });
+    // Convertir phone vide en null pour effacer la valeur
+    const data: any = { ...dto };
+    if (data.phone === "") data.phone = null;
+    return prisma.user.update({ where: { id }, data, select: SELECT_USER });
   },
 
   async delete(id: string) {

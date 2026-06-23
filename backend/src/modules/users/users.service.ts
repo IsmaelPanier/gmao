@@ -15,13 +15,13 @@ export const UsersService = {
   },
 
   async create(dto: CreateUserDto) {
-    // Check if email is already taken
-    const existingUsers = await UsersRepository.findAll({ q: dto.email, limit: 1, page: 1 });
-    if (existingUsers.data.some(u => u.email === dto.email)) {
-      throw AppError.badRequest("Email already in use");
+    // Check if email is already taken (exact match)
+    const existing = await UsersRepository.findByEmail(dto.email.toLowerCase());
+    if (existing) {
+      throw AppError.conflict("Cet email est déjà utilisé");
     }
     const hashedPassword = await bcrypt.hash(dto.password, 10);
-    return UsersRepository.create({ ...dto, password: hashedPassword });
+    return UsersRepository.create({ ...dto, email: dto.email.toLowerCase(), password: hashedPassword });
   },
 
   async update(id: string, dto: UpdateUserDto) {

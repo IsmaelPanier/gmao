@@ -117,7 +117,7 @@ export const InterventionsRepository = {
 
   async getLastNumber(): Promise<string> {
     const last = await prisma.intervention.findFirst({
-      orderBy: { number: "desc" },
+      orderBy: { createdAt: "desc" },
       select: { number: true },
     });
     const year = new Date().getFullYear();

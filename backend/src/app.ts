@@ -10,6 +10,9 @@ import usersRoutes from "./modules/users/users.routes";
 import clientsRoutes from "./modules/clients/clients.routes";
 import interventionsRoutes from "./modules/interventions/interventions.routes";
 import dashboardRoutes from "./modules/dashboard/dashboard.routes";
+import filesRoutes from "./modules/files/files.routes";
+import auditRoutes from "./modules/audit/audit.routes";
+import notificationsRoutes from "./modules/notifications/notifications.routes";
 
 export function createApp() {
   const app = express();
@@ -53,6 +56,9 @@ export function createApp() {
   app.use("/api/clients", clientsRoutes);
   app.use("/api/interventions", interventionsRoutes);
   app.use("/api/dashboard", dashboardRoutes);
+  app.use("/api/files", filesRoutes);
+  app.use("/api/audit", auditRoutes);
+  app.use("/api/notifications", notificationsRoutes);
 
   // ─── 404 ───────────────────────────────────────
   app.use((_req, res) => {

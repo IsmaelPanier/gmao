@@ -5,12 +5,12 @@ import { AppError } from "../shared/errors/AppError";
 export function requireRole(...roles: Role[]) {
   return (req: Request, _res: Response, next: NextFunction) => {
     if (!req.user) {
-      throw AppError.unauthorized();
+      return next(AppError.unauthorized());
     }
     if (!roles.includes(req.user.role)) {
-      throw AppError.forbidden(
+      return next(AppError.forbidden(
         `This action requires one of these roles: ${roles.join(", ")}`
-      );
+      ));
     }
     next();
   };
@@ -22,14 +22,14 @@ export function requireOwnerOrRole(
 ) {
   return (req: Request, _res: Response, next: NextFunction) => {
     if (!req.user) {
-      throw AppError.unauthorized();
+      return next(AppError.unauthorized());
     }
     const resourceUserId = getResourceUserId(req);
     const isOwner = resourceUserId === req.user.sub;
     const hasRole = roles.includes(req.user.role);
 
     if (!isOwner && !hasRole) {
-      throw AppError.forbidden("Access denied");
+      return next(AppError.forbidden("Access denied"));
     }
     next();
   };
