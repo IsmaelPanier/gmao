@@ -12,7 +12,7 @@ import {
   PieChart, Pie, Cell,
 } from "recharts";
 import { Activity, CheckCircle2, AlertTriangle, Calendar, Clock, TrendingUp, Users, ArrowRight } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 
 function StatCard({ label, value, sub, icon: Icon, color }: {
   label: string; value: number | string; sub?: string;
@@ -38,6 +38,7 @@ function Skeleton({ className }: { className?: string }) {
 
 export default function DashboardPage() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const { data: stats, isLoading } = useQuery({
     queryKey: ["dashboard-stats"],
     queryFn: DashboardService.getStats,
@@ -228,8 +229,19 @@ export default function DashboardPage() {
                     <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" horizontal={false} />
                     <XAxis type="number" stroke="hsl(var(--muted-foreground))" fontSize={11} tickLine={false} axisLine={false} allowDecimals={false} />
                     <YAxis type="category" dataKey="name" stroke="hsl(var(--muted-foreground))" fontSize={11} tickLine={false} axisLine={false} width={110} />
-                    <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "8px", fontSize: "12px" }} />
-                    <Bar dataKey="count" name="Terminées" fill={CHART_COLORS.success} radius={[0, 4, 4, 0]} />
+                    <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "8px", fontSize: "12px" }} cursor={{fill: 'transparent'}} />
+                    <Bar 
+                      dataKey="count" 
+                      name="Terminées" 
+                      fill={CHART_COLORS.success} 
+                      radius={[0, 4, 4, 0]} 
+                      onClick={(data) => {
+                        if (data && data.id) {
+                          navigate(`/interventions?technicianId=${data.id}&date=${new Date().toISOString().slice(0, 10)}`);
+                        }
+                      }}
+                      style={{ cursor: "pointer" }}
+                    />
                   </BarChart>
                 </ResponsiveContainer>
               )}
@@ -251,8 +263,19 @@ export default function DashboardPage() {
                     <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" horizontal={false} />
                     <XAxis type="number" stroke="hsl(var(--muted-foreground))" fontSize={11} tickLine={false} axisLine={false} allowDecimals={false} />
                     <YAxis type="category" dataKey="name" stroke="hsl(var(--muted-foreground))" fontSize={11} tickLine={false} axisLine={false} width={110} />
-                    <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "8px", fontSize: "12px" }} />
-                    <Bar dataKey="count" name="Missions actives" fill={CHART_COLORS.warning} radius={[0, 4, 4, 0]} />
+                    <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "8px", fontSize: "12px" }} cursor={{fill: 'transparent'}} />
+                    <Bar 
+                      dataKey="count" 
+                      name="Missions actives" 
+                      fill={CHART_COLORS.warning} 
+                      radius={[0, 4, 4, 0]} 
+                      onClick={(data) => {
+                        if (data && data.id) {
+                          navigate(`/interventions?technicianId=${data.id}&date=${new Date().toISOString().slice(0, 10)}`);
+                        }
+                      }}
+                      style={{ cursor: "pointer" }}
+                    />
                   </BarChart>
                 </ResponsiveContainer>
               )}

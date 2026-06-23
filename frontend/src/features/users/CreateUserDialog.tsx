@@ -37,18 +37,40 @@ export function CreateUserDialog() {
     onError: (err) => toast.error(getApiError(err)),
   });
 
+  const [emailError, setEmailError] = useState("");
+
   const handlePhoneChange = (val: string) => {
-    // Limit to 15 characters
-    const newVal = val.slice(0, 15);
+    // Autoriser uniquement les chiffres, espaces, tirets, points et le + initial
+    let newVal = val.replace(/[^\d\s.\-+]/g, "");
+    
+    // Compter uniquement les vrais chiffres
+    const digitsOnly = newVal.replace(/\D/g, "");
+    const hasPlus = newVal.startsWith("+");
+    
+    // Limiter strictement à 10 chiffres (ou 11 si +33)
+    const maxDigits = hasPlus ? 11 : 10;
+    if (digitsOnly.length > maxDigits) {
+      return; // Bloque la frappe si on dépasse
+    }
+
     setForm({ ...form, phone: newVal });
     if (newVal && !PHONE_REGEX.test(newVal)) {
-      setPhoneError("Format de téléphone français invalide");
+      setPhoneError("Numéro français invalide (ex: 0612345678 ou +336...)");
     } else {
       setPhoneError("");
     }
   };
 
-  const isFormValid = form.name.length >= 2 && form.email.includes("@") && form.password.length >= 6 && !phoneError;
+  const handleEmailChange = (val: string) => {
+    setForm({ ...form, email: val });
+    if (val && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val)) {
+      setEmailError("Format d'email invalide");
+    } else {
+      setEmailError("");
+    }
+  };
+
+  const isFormValid = form.name.length >= 2 && form.email.includes("@") && !emailError && form.password.length >= 6 && !phoneError;
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -68,7 +90,14 @@ export function CreateUserDialog() {
           </div>
           <div className="space-y-1.5">
             <Label>Email *</Label>
-            <Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="email@exemple.fr" />
+            <Input 
+              type="email" 
+              value={form.email} 
+              onChange={(e) => handleEmailChange(e.target.value)} 
+              placeholder="email@exemple.fr" 
+              className={emailError ? "border-destructive" : ""}
+            />
+            {emailError && <p className="text-xs text-destructive">{emailError}</p>}
           </div>
           <div className="space-y-1.5">
             <Label>Mot de passe initial *</Label>

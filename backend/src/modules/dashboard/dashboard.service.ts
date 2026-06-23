@@ -85,11 +85,13 @@ export const DashboardService = {
     const resolveName = (id: string) => technicianUsers.find((u) => u.id === id)?.name ?? "Unknown";
 
     const byTechnicianNamed = byTechnician.map((t) => ({
+      id: t.userId,
       name: resolveName(t.userId),
       count: t._count.userId,
     }));
     
     const teamWorkload = workload.map((w) => ({
+      id: w.userId,
       name: resolveName(w.userId),
       count: w._count.userId,
     }));

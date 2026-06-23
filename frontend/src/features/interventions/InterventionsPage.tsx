@@ -26,16 +26,47 @@ export default function InterventionsPage() {
   const { user } = useAuth();
   const qc = useQueryClient();
   const canCreate = ["admin", "manager"].includes(user?.role ?? "");
-
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [filters, setFilters] = useState({
     q: searchParams.get("q") || "",
     status: searchParams.get("status") || "active",
     priority: searchParams.get("priority") || "all",
     clientId: searchParams.get("clientId") || "all",
+    technicianId: searchParams.get("technicianId") || "all",
     date: searchParams.get("date") || "",
-    page: 1,
+    page: parseInt(searchParams.get("page") || "1", 10) || 1,
   });
+
+  // Sync state when URL params change (e.g. clicking a link from Dashboard)
+  React.useEffect(() => {
+    setFilters({
+      q: searchParams.get("q") || "",
+      status: searchParams.get("status") || "active",
+      priority: searchParams.get("priority") || "all",
+      clientId: searchParams.get("clientId") || "all",
+      technicianId: searchParams.get("technicianId") || "all",
+      date: searchParams.get("date") || "",
+      page: parseInt(searchParams.get("page") || "1", 10) || 1,
+    });
+  }, [searchParams]);
+
+  const updateFilter = (key: string, value: string | number) => {
+    const newFilters = { ...filters, [key]: value };
+    if (key !== "page") newFilters.page = 1; // reset page on filter change
+    
+    // Update URL params
+    const newParams = new URLSearchParams();
+    if (newFilters.q) newParams.set("q", newFilters.q);
+    if (newFilters.status !== "active") newParams.set("status", newFilters.status);
+    if (newFilters.priority !== "all") newParams.set("priority", newFilters.priority);
+    if (newFilters.clientId !== "all") newParams.set("clientId", newFilters.clientId);
+    if (newFilters.technicianId !== "all") newParams.set("technicianId", newFilters.technicianId);
+    if (newFilters.date) newParams.set("date", newFilters.date);
+    if (newFilters.page > 1) newParams.set("page", newFilters.page.toString());
+    
+    setSearchParams(newParams);
+  };
+
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({
     type: "", description: "", address: "",
@@ -51,6 +82,7 @@ export default function InterventionsPage() {
     ...(filters.status !== "all" && { status: filters.status }),
     ...(filters.priority !== "all" && { priority: filters.priority }),
     ...(filters.clientId !== "all" && { clientId: filters.clientId }),
+    ...(filters.technicianId !== "all" && { technicianId: filters.technicianId }),
     ...(filters.date && { dateFrom: filters.date, dateTo: filters.date }),
     page: filters.page,
     limit: PAGE_SIZE,
@@ -211,17 +243,17 @@ export default function InterventionsPage() {
       </div>
 
       {/* Filters */}
-      <div className="bg-card border border-border rounded-lg p-4 grid grid-cols-1 md:grid-cols-4 gap-3">
+      <div className="bg-card border border-border rounded-lg p-4 grid grid-cols-1 md:grid-cols-5 gap-3">
         <div className="relative">
           <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
           <Input
             placeholder="N°, type, adresse…"
             value={filters.q}
-            onChange={(e) => setFilters({ ...filters, q: e.target.value, page: 1 })}
+            onChange={(e) => updateFilter("q", e.target.value)}
             className="pl-9"
           />
         </div>
-        <Select value={filters.status} onValueChange={(v) => setFilters({ ...filters, status: v, page: 1 })}>
+        <Select value={filters.status} onValueChange={(v) => updateFilter("status", v)}>
           <SelectTrigger><SelectValue placeholder="Statut" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="active">Interventions actives</SelectItem>
@@ -229,17 +261,24 @@ export default function InterventionsPage() {
             {Object.entries(STATUS_LABELS).map(([k, l]) => <SelectItem key={k} value={k}>{l}</SelectItem>)}
           </SelectContent>
         </Select>
-        <Select value={filters.priority} onValueChange={(v) => setFilters({ ...filters, priority: v, page: 1 })}>
+        <Select value={filters.priority} onValueChange={(v) => updateFilter("priority", v)}>
           <SelectTrigger><SelectValue placeholder="Priorité" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Toutes les priorités</SelectItem>
             {Object.entries(PRIORITY_LABELS).map(([k, l]) => <SelectItem key={k} value={k}>{l}</SelectItem>)}
           </SelectContent>
         </Select>
+        <Select value={filters.technicianId} onValueChange={(v) => updateFilter("technicianId", v)}>
+          <SelectTrigger><SelectValue placeholder="Technicien" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Tous les techniciens</SelectItem>
+            {techs?.data.map((t) => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
+          </SelectContent>
+        </Select>
         <Input 
           type="date" 
           value={filters.date} 
-          onChange={(e) => setFilters({ ...filters, date: e.target.value, page: 1 })} 
+          onChange={(e) => updateFilter("date", e.target.value)} 
           className="w-full text-muted-foreground"
         />
       </div>
@@ -311,10 +350,10 @@ export default function InterventionsPage() {
           <div className="flex items-center justify-between px-4 py-3 border-t border-border">
             <span className="text-xs text-muted-foreground">Page {filters.page} / {totalPages}</span>
             <div className="flex gap-1">
-              <Button variant="outline" size="sm" disabled={filters.page <= 1} onClick={() => setFilters((f) => ({ ...f, page: f.page - 1 }))}>
+              <Button variant="outline" size="sm" disabled={filters.page <= 1} onClick={() => updateFilter("page", filters.page - 1)}>
                 <ChevronLeft className="w-4 h-4" />
               </Button>
-              <Button variant="outline" size="sm" disabled={filters.page >= totalPages} onClick={() => setFilters((f) => ({ ...f, page: f.page + 1 }))}>
+              <Button variant="outline" size="sm" disabled={filters.page >= totalPages} onClick={() => updateFilter("page", filters.page + 1)}>
                 <ChevronRight className="w-4 h-4" />
               </Button>
             </div>

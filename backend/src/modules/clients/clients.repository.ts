@@ -31,7 +31,12 @@ export const ClientsRepository = {
       where: { id },
       include: {
         interventions: {
-          orderBy: { createdAt: "desc" },
+          orderBy: { scheduledDate: "desc" },
+          include: {
+            technicians: {
+              include: { user: true }
+            }
+          }
         },
       },
     });

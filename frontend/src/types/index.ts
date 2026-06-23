@@ -91,8 +91,8 @@ export interface DashboardStats {
   resolution_rate: number;
   avg_duration: number;
   by_month: Array<{ month: string; count: number }>;
-  by_technician: Array<{ name: string; count: number }>;
-  team_workload?: Array<{ name: string; count: number }>;
+  by_technician: Array<{ id: string; name: string; count: number }>;
+  team_workload?: Array<{ id: string; name: string; count: number }>;
   recent: Intervention[];
 }
 

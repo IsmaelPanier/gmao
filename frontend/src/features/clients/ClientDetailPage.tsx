@@ -112,6 +112,7 @@ export default function ClientDetailPage() {
                   <th className="text-left px-4 py-3">N°</th>
                   <th className="text-left px-4 py-3">Type</th>
                   <th className="text-left px-4 py-3">Date</th>
+                  <th className="text-left px-4 py-3">Technicien(s)</th>
                   <th className="text-left px-4 py-3">Statut</th>
                   <th className="text-left px-4 py-3">Priorité</th>
                   <th className="w-12" />
@@ -120,7 +121,7 @@ export default function ClientDetailPage() {
               <tbody>
                 {interventions.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="py-8 text-center text-muted-foreground">
+                    <td colSpan={7} className="py-8 text-center text-muted-foreground">
                       Aucune intervention trouvée pour ce client
                     </td>
                   </tr>
@@ -135,6 +136,11 @@ export default function ClientDetailPage() {
                       <td className="px-4 py-3 font-medium">{it.type}</td>
                       <td className="px-4 py-3 text-muted-foreground whitespace-nowrap">
                         {formatDate(it.scheduledDate)} {it.scheduledTime && <span className="text-muted-foreground/60">{it.scheduledTime}</span>}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-muted-foreground">
+                        {it.technicians?.length > 0
+                          ? it.technicians.map((t: any) => t.user?.name).join(", ")
+                          : "Non assigné"}
                       </td>
                       <td className="px-4 py-3"><StatusBadge status={it.status} /></td>
                       <td className="px-4 py-3"><PriorityBadge priority={it.priority} /></td>

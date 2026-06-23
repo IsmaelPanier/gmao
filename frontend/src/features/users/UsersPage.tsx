@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Search, Mail, Phone, Shield } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { CreateUserDialog } from "./CreateUserDialog";
+import { EditUserDialog } from "./EditUserDialog";
 import { useAuth } from "@/features/auth/AuthContext";
 
 export default function UsersPage() {
@@ -45,7 +46,10 @@ export default function UsersPage() {
                   <span className="uppercase tracking-wider font-medium">{u.role}</span>
                 </div>
               </div>
-              <Badge variant={u.isActive ? "default" : "destructive"}>{u.isActive ? "Actif" : "Inactif"}</Badge>
+              <div className="flex flex-col items-end gap-2">
+                <Badge variant={u.isActive ? "default" : "destructive"}>{u.isActive ? "Actif" : "Inactif"}</Badge>
+                {isAdmin && <EditUserDialog user={u} />}
+              </div>
             </div>
             <div className="space-y-1 mt-2 text-sm text-muted-foreground">
               <div className="flex items-center gap-2"><Mail className="w-4 h-4" /> {u.email}</div>
