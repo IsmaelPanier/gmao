@@ -13,15 +13,15 @@ router.use(authenticate);
 router.get("/", requireRole("admin", "manager"), validate(listUsersSchema, "query"), UsersController.list);
 
 // POST /api/users
-router.post("/", requireRole("admin"), validate(createUserSchema), UsersController.create);
+router.post("/", requireRole("admin", "manager"), validate(createUserSchema), UsersController.create);
 
 // GET /api/users/:id
 router.get("/:id", requireRole("admin", "manager"), UsersController.getById);
 
 // PATCH /api/users/:id
-router.patch("/:id", requireRole("admin"), validate(updateUserSchema), UsersController.update);
+router.patch("/:id", requireRole("admin", "manager"), validate(updateUserSchema), UsersController.update);
 
 // DELETE /api/users/:id
-router.delete("/:id", requireRole("admin"), UsersController.remove);
+router.delete("/:id", requireRole("admin", "manager"), UsersController.remove);
 
 export default router;

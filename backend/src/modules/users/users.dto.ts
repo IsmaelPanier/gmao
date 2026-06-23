@@ -10,7 +10,8 @@ export const createUserSchema = z.object({
 
 export const updateUserSchema = z.object({
   name: z.string().min(2).optional(),
-  phone: z.string().regex(/^(?:(?:\+|00)33|0)\s*[1-9](?:[\s.-]*\d{2}){4}$/, "Numéro de téléphone français invalide").optional(),
+  email: z.string().email("Email invalide").optional(),
+  phone: z.string().regex(/^(?:(?:\+|00)33|0)\s*[1-9](?:[\s.-]*\d{2}){4}$/, "Numéro de téléphone français invalide").or(z.literal("")).optional(),
   isActive: z.boolean().optional(),
   role: z.enum(["admin", "manager", "technician"]).optional(),
 });

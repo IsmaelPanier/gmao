@@ -17,7 +17,7 @@ export default function UsersPage() {
   });
 
   const users = data?.data ?? [];
-  const isAdmin = user?.role === "admin";
+  const canManageUsers = ["admin", "manager"].includes(user?.role ?? "");
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -26,7 +26,7 @@ export default function UsersPage() {
           <div className="text-xs font-bold uppercase tracking-[0.2em] text-muted-foreground">Équipe</div>
           <h1 className="text-3xl font-bold tracking-tight">Utilisateurs</h1>
         </div>
-        {isAdmin && <CreateUserDialog />}
+        {canManageUsers && <CreateUserDialog />}
       </div>
       <div className="bg-card border border-border rounded-lg p-4">
         <div className="relative max-w-sm">
@@ -48,7 +48,7 @@ export default function UsersPage() {
               </div>
               <div className="flex flex-col items-end gap-2">
                 <Badge variant={u.isActive ? "default" : "destructive"}>{u.isActive ? "Actif" : "Inactif"}</Badge>
-                {isAdmin && <EditUserDialog user={u} />}
+                {canManageUsers && <EditUserDialog user={u} />}
               </div>
             </div>
             <div className="space-y-1 mt-2 text-sm text-muted-foreground">

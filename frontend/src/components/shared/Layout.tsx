@@ -29,7 +29,7 @@ const NAV_ITEMS: NavItem[] = [
   { to: "/mes-interventions", label: "Mes interventions", icon: Briefcase, roles: ["technician"] },
   { to: "/planning", label: "Planning", icon: Calendar, roles: ["admin", "manager", "technician"] },
   { to: "/clients", label: "Clients", icon: Users, roles: ["admin", "manager"] },
-  { to: "/utilisateurs", label: "Utilisateurs", icon: UserCog, roles: ["admin"] },
+  { to: "/users", label: "Équipe (Utilisateurs)", icon: UserCog, roles: ["admin", "manager"] },
 ];
 
 function SidebarContent({ onClose }: { onClose?: () => void }) {

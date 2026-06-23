@@ -36,7 +36,7 @@ export default function App() {
             <Route path="/interventions/:id" element={<ProtectedRoute><InterventionDetailPage /></ProtectedRoute>} />
             <Route path="/clients" element={<ProtectedRoute roles={["admin", "manager"]}><ClientsPage /></ProtectedRoute>} />
             <Route path="/clients/:id" element={<ProtectedRoute roles={["admin", "manager"]}><ClientDetailPage /></ProtectedRoute>} />
-            <Route path="/users" element={<ProtectedRoute roles={["admin"]}><UsersPage /></ProtectedRoute>} />
+            <Route path="/users" element={<ProtectedRoute roles={["admin", "manager"]}><UsersPage /></ProtectedRoute>} />
             <Route path="/planning" element={<ProtectedRoute><PlanningPage /></ProtectedRoute>} />
             
             <Route path="*" element={<Navigate to="/" replace />} />
