@@ -18,7 +18,7 @@ export const FilesController = {
       }
 
       const media = await FilesService.uploadInterventionMedia(
-        interventionId,
+        interventionId as string,
         req.user.sub,
         req.file,
         type as MediaType
@@ -33,7 +33,7 @@ export const FilesController = {
   async remove(req: Request, res: Response, next: NextFunction) {
     try {
       if (!req.user) throw AppError.unauthorized();
-      await FilesService.deleteMedia(req.params.id, req.user.sub);
+      await FilesService.deleteMedia(req.params.id as string, req.user.sub);
       res.json(success(null, "Media deleted successfully"));
     } catch (err) {
       next(err);

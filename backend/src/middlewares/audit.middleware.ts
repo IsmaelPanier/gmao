@@ -20,7 +20,8 @@ export const auditLog = (entityName: string) => {
         }
 
         // Try to guess the entity ID (from params or response if body was intercepted, but we keep it simple here)
-        const entityId = req.params.id || req.params.interventionId || undefined;
+        const rawId = req.params.id || req.params.interventionId || undefined;
+        const entityId: string | undefined = Array.isArray(rawId) ? rawId[0] : rawId;
 
         AuditService.log({
           userId: req.user?.sub,

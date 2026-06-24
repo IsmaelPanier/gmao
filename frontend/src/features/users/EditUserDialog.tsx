@@ -132,7 +132,7 @@ export function EditUserDialog({ user }: { user: User }) {
           </div>
           <div className="space-y-1.5">
             <Label>Rôle *</Label>
-            <Select value={form.role} onValueChange={(v) => setForm({ ...form, role: v })}>
+            <Select value={form.role} onValueChange={(v) => setForm({ ...form, role: v as import("@/types").Role })}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="technician">Technicien</SelectItem>
