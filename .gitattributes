@@ -1,0 +1,15 @@
+# Fins de ligne Unix pour les scripts shell (important pour Docker/Linux)
+*.sh         text eol=lf
+entrypoint*  text eol=lf
+
+# Fichiers texte standard
+*.ts         text eol=lf
+*.tsx        text eol=lf
+*.js         text eol=lf
+*.json       text eol=lf
+*.md         text eol=lf
+*.yml        text eol=lf
+*.yaml       text eol=lf
+*.env*       text eol=lf
+Dockerfile*  text eol=lf
+nginx.conf   text eol=lf
