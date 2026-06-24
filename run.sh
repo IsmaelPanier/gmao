@@ -30,6 +30,12 @@ print_banner() {
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
 
+# ─── Détection WSL ────────────────────────────────────────────────
+is_wsl() {
+  grep -qi microsoft /proc/version 2>/dev/null || \
+  grep -qi wsl /proc/version 2>/dev/null
+}
+
 # ─── Détection de docker compose (v2 ou v1) ───────────────────────
 detect_compose() {
   if docker compose version &>/dev/null 2>&1; then
@@ -37,7 +43,12 @@ detect_compose() {
   elif command -v docker-compose &>/dev/null; then
     echo "docker-compose"
   else
-    log_error "docker compose introuvable. Installez Docker Desktop ou docker-compose-plugin."
+    log_error "docker compose introuvable."
+    if is_wsl; then
+      echo "  → Activez Docker Desktop > Settings > Resources > WSL Integration"
+    else
+      echo "  → sudo apt-get install docker-compose-plugin"
+    fi
     exit 1
   fi
 }
@@ -48,17 +59,35 @@ check_prerequisites() {
 
   if ! command -v docker &>/dev/null; then
     log_error "Docker n'est pas installé."
-    echo "  → https://docs.docker.com/engine/install/ubuntu/"
+    if is_wsl; then
+      echo "  → Installez Docker Desktop sur Windows et activez l'intégration WSL :"
+      echo "     Docker Desktop > Settings > Resources > WSL Integration"
+    else
+      echo "  → https://docs.docker.com/engine/install/ubuntu/"
+    fi
     exit 1
   fi
-  log_info "Docker $(docker --version | grep -oP '[\d.]+' | head -1)"
+  log_info "Docker détecté : $(docker --version)"
 
   COMPOSE_CMD=$(detect_compose)
-  log_info "Docker Compose détecté : $COMPOSE_CMD"
+  log_info "Docker Compose : $COMPOSE_CMD"
 
   if ! docker info &>/dev/null 2>&1; then
-    log_error "Le daemon Docker n'est pas démarré."
-    echo "  Lancez : sudo systemctl start docker"
+    log_error "Le daemon Docker ne répond pas."
+    echo ""
+    if is_wsl; then
+      echo -e "  ${YELLOW}Vous êtes sous WSL — Docker Desktop doit tourner sur Windows.${NC}"
+      echo ""
+      echo "  1. Démarrez Docker Desktop sur Windows"
+      echo "  2. Attendez que l'icône soit verte (daemon prêt)"
+      echo "  3. Vérifiez : Docker Desktop > Settings > Resources > WSL Integration"
+      echo "     → Activez l'intégration pour votre distro WSL"
+      echo "  4. Relancez ce terminal WSL et retentez ./run.sh"
+    else
+      echo "  Lancez : sudo systemctl start docker"
+      echo "  Ou     : sudo service docker start"
+    fi
+    echo ""
     exit 1
   fi
   log_info "Daemon Docker actif"
