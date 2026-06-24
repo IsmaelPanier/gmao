@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # ══════════════════════════════════════════════════════════════════
-#  GMAO Pro — Script de déploiement Docker
-#  Usage : ./run.sh [commande] [options]
+#  GMAO Pro — Script de déploiement Docker (auto-install)
+#  Usage : ./run.sh          (premier lancement, installe tout)
+#          ./run.sh --seed   (avec données de démonstration)
 # ══════════════════════════════════════════════════════════════════
 set -euo pipefail
 
@@ -11,10 +12,20 @@ BLUE='\033[0;34m'; CYAN='\033[0;36m'; BOLD='\033[1m'; NC='\033[0m'
 
 log_info()  { echo -e "${GREEN}[✓]${NC} $1"; }
 log_warn()  { echo -e "${YELLOW}[!]${NC} $1"; }
-log_error() { echo -e "${RED}[✗]${NC} $1"; }
+log_error() { echo -e "${RED}[✗]${NC} $1" >&2; }
 log_step()  { echo -e "\n${BLUE}${BOLD}▶  $1${NC}"; }
 
-# ─── Bannière ─────────────────────────────────────────────────────
+# ─── Répertoire du script ─────────────────────────────────────────
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$SCRIPT_DIR"
+
+# ─── Variables globales ────────────────────────────────────────────
+SUDO=""   # sera positionné à "sudo" si nécessaire
+DC=""     # commande docker compose finale
+
+# ══════════════════════════════════════════════════════════════════
+#  Bannière
+# ══════════════════════════════════════════════════════════════════
 print_banner() {
   echo -e "${BLUE}${BOLD}"
   echo "  ██████╗ ███╗   ███╗ █████╗  ██████╗     ██████╗ ██████╗  ██████╗ "
@@ -26,140 +37,357 @@ print_banner() {
   echo -e "${NC}${CYAN}  Gestion de Maintenance Assistée par Ordinateur${NC}\n"
 }
 
-# ─── Répertoire du script ─────────────────────────────────────────
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-cd "$SCRIPT_DIR"
+# ══════════════════════════════════════════════════════════════════
+#  Utilitaires de détection
+# ══════════════════════════════════════════════════════════════════
+is_wsl()    { grep -qiE "microsoft|wsl" /proc/version 2>/dev/null; }
+is_debian() { command -v apt-get &>/dev/null; }
+has_cmd()   { command -v "$1" &>/dev/null; }
 
-# ─── Détection WSL ────────────────────────────────────────────────
-is_wsl() {
-  grep -qi microsoft /proc/version 2>/dev/null || \
-  grep -qi wsl /proc/version 2>/dev/null
-}
-
-# ─── Détection de docker compose (v2 ou v1) ───────────────────────
-detect_compose() {
-  if docker compose version &>/dev/null 2>&1; then
-    echo "docker compose"
-  elif command -v docker-compose &>/dev/null; then
-    echo "docker-compose"
+# Détecte la distribution pour l'URL Docker GPG
+distro_id() {
+  if [ -f /etc/os-release ]; then
+    # shellcheck disable=SC1091
+    . /etc/os-release
+    echo "${ID:-linux}"
   else
-    log_error "docker compose introuvable."
-    if is_wsl; then
-      echo "  → Activez Docker Desktop > Settings > Resources > WSL Integration"
-    else
-      echo "  → sudo apt-get install docker-compose-plugin"
-    fi
+    echo "linux"
+  fi
+}
+
+# ══════════════════════════════════════════════════════════════════
+#  Gestion sudo — demande le mot de passe UNE SEULE FOIS au début
+# ══════════════════════════════════════════════════════════════════
+acquire_sudo() {
+  # L'utilisateur est root → pas besoin de sudo
+  if [ "$EUID" -eq 0 ]; then
+    SUDO=""
+    return 0
+  fi
+
+  # sudo disponible ?
+  if ! has_cmd sudo; then
+    log_warn "sudo absent — les opérations système seront ignorées."
+    SUDO=""
+    return 0
+  fi
+
+  # L'utilisateur peut-il utiliser sudo sans mot de passe ?
+  if sudo -n true 2>/dev/null; then
+    SUDO="sudo"
+    return 0
+  fi
+
+  # Sinon : on demande le mot de passe une seule fois ici
+  echo ""
+  echo -e "${YELLOW}${BOLD}┌─────────────────────────────────────────────────┐${NC}"
+  echo -e "${YELLOW}${BOLD}│  Mot de passe administrateur requis             │${NC}"
+  echo -e "${YELLOW}${BOLD}│  (utilisé pour Docker et les services système)  │${NC}"
+  echo -e "${YELLOW}${BOLD}└─────────────────────────────────────────────────┘${NC}"
+  echo ""
+  if sudo -v; then
+    SUDO="sudo"
+    # Maintenir le cache sudo actif en arrière-plan pendant toute la durée du script
+    # (rafraîchit toutes les 50 secondes pour ne pas expirer pendant un long build)
+    ( while true; do sudo -n true; sleep 50; done ) 2>/dev/null &
+    SUDO_REFRESH_PID=$!
+    # Nettoyer le processus de refresh à la fin du script
+    trap 'kill "$SUDO_REFRESH_PID" 2>/dev/null || true' EXIT
+    log_info "Accès administrateur accordé."
+  else
+    log_error "Mot de passe incorrect ou sudo refusé."
     exit 1
   fi
 }
 
-# ─── Vérification des prérequis ───────────────────────────────────
-check_prerequisites() {
-  log_step "Vérification des prérequis"
+# ══════════════════════════════════════════════════════════════════
+#  Installation de Docker Engine
+# ══════════════════════════════════════════════════════════════════
+install_docker() {
+  log_step "Installation de Docker Engine"
 
-  if ! command -v docker &>/dev/null; then
-    log_error "Docker n'est pas installé."
-    if is_wsl; then
-      echo "  → Installez Docker Desktop sur Windows et activez l'intégration WSL :"
-      echo "     Docker Desktop > Settings > Resources > WSL Integration"
-    else
-      echo "  → https://docs.docker.com/engine/install/ubuntu/"
-    fi
+  if ! is_debian; then
+    log_error "Installation automatique supportée uniquement sur Ubuntu/Debian."
+    echo "  Installez Docker manuellement : https://docs.docker.com/engine/install/"
     exit 1
   fi
-  log_info "Docker détecté : $(docker --version)"
 
-  COMPOSE_CMD=$(detect_compose)
-  log_info "Docker Compose : $COMPOSE_CMD"
+  local distro
+  distro=$(distro_id)
 
+  # Normaliser les dérivés (linuxmint, pop, etc.) vers ubuntu ou debian
+  case "$distro" in
+    ubuntu|linuxmint|pop|elementary|zorin) distro="ubuntu" ;;
+    debian|raspbian|kali)                  distro="debian" ;;
+    *)
+      log_warn "Distribution '$distro' inconnue — tentative avec 'ubuntu'."
+      distro="ubuntu"
+      ;;
+  esac
+
+  log_info "Mise à jour des paquets apt..."
+  $SUDO apt-get update -qq
+
+  log_info "Installation des dépendances..."
+  $SUDO apt-get install -y -qq ca-certificates curl gnupg lsb-release
+
+  log_info "Ajout du dépôt officiel Docker..."
+  $SUDO install -m 0755 -d /etc/apt/keyrings
+
+  curl -fsSL "https://download.docker.com/linux/${distro}/gpg" \
+    | $SUDO gpg --dearmor -o /etc/apt/keyrings/docker.gpg 2>/dev/null
+  $SUDO chmod a+r /etc/apt/keyrings/docker.gpg
+
+  echo \
+    "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] \
+    https://download.docker.com/linux/${distro} $(lsb_release -cs) stable" \
+    | $SUDO tee /etc/apt/sources.list.d/docker.list >/dev/null
+
+  $SUDO apt-get update -qq
+
+  log_info "Installation de Docker CE + Compose plugin..."
+  $SUDO apt-get install -y -qq \
+    docker-ce docker-ce-cli containerd.io \
+    docker-buildx-plugin docker-compose-plugin
+
+  # Ajouter l'utilisateur au groupe docker pour éviter sudo dans les futures sessions
+  $SUDO usermod -aG docker "$USER" 2>/dev/null || true
+
+  log_info "Docker installé avec succès."
+  log_warn "Pour que le groupe 'docker' soit effectif, déconnectez-vous / reconnectez-vous."
+  log_warn "Pour cette session, sudo sera utilisé automatiquement."
+}
+
+# ══════════════════════════════════════════════════════════════════
+#  Démarrage du daemon Docker
+# ══════════════════════════════════════════════════════════════════
+start_docker_daemon() {
+  log_warn "Tentative de démarrage du daemon Docker..."
+
+  # Essai 1 : systemctl (systemd — Ubuntu natif ou WSL2 récent)
+  if has_cmd systemctl && systemctl is-system-running &>/dev/null 2>&1; then
+    if $SUDO systemctl start docker 2>/dev/null; then
+      sleep 2
+      return 0
+    fi
+  fi
+
+  # Essai 2 : service (init.d — WSL2 sans systemd)
+  if has_cmd service; then
+    if $SUDO service docker start 2>/dev/null; then
+      sleep 2
+      return 0
+    fi
+  fi
+
+  # Essai 3 : lancer dockerd directement en arrière-plan (dernier recours)
+  if has_cmd dockerd; then
+    log_warn "Lancement de dockerd en arrière-plan (fallback)..."
+    nohup $SUDO dockerd >/tmp/dockerd.log 2>&1 &
+    sleep 5
+    return 0
+  fi
+
+  return 1
+}
+
+# ══════════════════════════════════════════════════════════════════
+#  Vérification et configuration complète de Docker
+# ══════════════════════════════════════════════════════════════════
+setup_docker() {
+  log_step "Vérification de Docker"
+
+  # ── 1. Docker Engine installé ? ──────────────────────────────
+  local docker_ver
+  docker_ver=$(docker --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1 || true)
+
+  if [ -z "$docker_ver" ]; then
+    log_warn "Docker non détecté — installation automatique..."
+    install_docker
+    docker_ver=$(docker --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1 || true)
+    if [ -z "$docker_ver" ]; then
+      log_error "Échec de l'installation de Docker. Installez-le manuellement :"
+      echo "  https://docs.docker.com/engine/install/"
+      exit 1
+    fi
+  fi
+  log_info "Docker $docker_ver"
+
+  # ── 2. Daemon actif ? ────────────────────────────────────────
   if ! docker info &>/dev/null 2>&1; then
-    log_error "Le daemon Docker ne répond pas."
-    echo ""
-    if is_wsl; then
-      echo -e "  ${YELLOW}Vous êtes sous WSL — Docker Desktop doit tourner sur Windows.${NC}"
-      echo ""
-      echo "  1. Démarrez Docker Desktop sur Windows"
-      echo "  2. Attendez que l'icône soit verte (daemon prêt)"
-      echo "  3. Vérifiez : Docker Desktop > Settings > Resources > WSL Integration"
-      echo "     → Activez l'intégration pour votre distro WSL"
-      echo "  4. Relancez ce terminal WSL et retentez ./run.sh"
+    if [ -n "$SUDO" ] && $SUDO docker info &>/dev/null 2>&1; then
+      # Docker fonctionne mais l'utilisateur n'est pas encore dans le groupe
+      : # on gérera via le préfixe $SUDO dans la commande DC
     else
-      echo "  Lancez : sudo systemctl start docker"
-      echo "  Ou     : sudo service docker start"
+      if ! start_docker_daemon; then
+        log_error "Impossible de démarrer le daemon Docker."
+        if is_wsl; then
+          echo ""
+          echo -e "  ${YELLOW}Sous WSL 2, deux solutions :${NC}"
+          echo ""
+          echo "  ▸ Option A — Docker Desktop (Windows, recommandé) :"
+          echo "    1. Téléchargez Docker Desktop : https://www.docker.com/products/docker-desktop/"
+          echo "    2. Docker Desktop → Settings → Resources → WSL Integration"
+          echo "    3. Activez votre distro, cliquez 'Apply & Restart'"
+          echo "    4. Ouvrez un nouveau terminal et relancez : ./run.sh"
+          echo ""
+          echo "  ▸ Option B — Docker natif dans WSL (ce script installera Docker) :"
+          echo "    Nécessite systemd activé dans WSL2."
+        fi
+        exit 1
+      fi
     fi
-    echo ""
-    exit 1
   fi
+
+  # ── 3. Accès sans sudo ? ─────────────────────────────────────
+  if ! docker ps &>/dev/null 2>&1; then
+    if [ -n "$SUDO" ] && $SUDO docker ps &>/dev/null 2>&1; then
+      log_warn "Docker accessible uniquement via sudo pour cette session."
+      log_warn "Pour les prochaines sessions, reconnectez-vous (groupe 'docker' ajouté)."
+    else
+      log_error "Impossible d'accéder au daemon Docker, même avec sudo."
+      exit 1
+    fi
+  fi
+
   log_info "Daemon Docker actif"
+
+  # ── 4. Docker Compose ────────────────────────────────────────
+  local dc_prefix="${SUDO:+$SUDO }"
+  if ${dc_prefix}docker compose version &>/dev/null 2>&1; then
+    DC="${dc_prefix}docker compose"
+    log_info "Docker Compose v2 (plugin)"
+  elif has_cmd docker-compose; then
+    DC="docker-compose"
+    log_info "Docker Compose v1 (standalone)"
+  else
+    log_warn "Docker Compose non trouvé — installation..."
+    $SUDO apt-get install -y -qq docker-compose-plugin 2>/dev/null \
+      || $SUDO apt-get install -y -qq docker-compose 2>/dev/null \
+      || { log_error "Impossible d'installer Docker Compose. Installez-le manuellement."; exit 1; }
+    DC="${dc_prefix}docker compose"
+    log_info "Docker Compose installé"
+  fi
 }
 
-# ─── Configuration .env ───────────────────────────────────────────
+# ══════════════════════════════════════════════════════════════════
+#  Configuration .env
+# ══════════════════════════════════════════════════════════════════
+
+# sed -i portable (BSD sur macOS, GNU sur Linux)
+sed_inplace() {
+  local pattern="$1"
+  local file="$2"
+  if sed --version 2>/dev/null | grep -q GNU; then
+    sed -i "$pattern" "$file"
+  else
+    sed -i '' "$pattern" "$file"
+  fi
+}
+
 setup_env() {
   log_step "Configuration de l'environnement"
+
+  if [ ! -f ".env.example" ]; then
+    log_error "Fichier .env.example introuvable. Êtes-vous dans le bon répertoire ?"
+    exit 1
+  fi
 
   if [ ! -f ".env" ]; then
     cp .env.example .env
     log_info "Fichier .env créé depuis .env.example"
 
-    # Génération de secrets aléatoires si openssl disponible
-    if command -v openssl &>/dev/null; then
-      JWT_GEN=$(openssl rand -hex 32)
-      PG_GEN=$(openssl rand -hex 12)
-      MINIO_GEN=$(openssl rand -hex 12)
-
-      if [[ "$OSTYPE" == "darwin"* ]]; then
-        sed -i '' "s|CHANGEME_jwt_secret_must_be_at_least_32_chars_long|${JWT_GEN}|g" .env
-        sed -i '' "s|CHANGEME_mot_de_passe_base_de_donnees|${PG_GEN}|g" .env
-        sed -i '' "s|CHANGEME_mot_de_passe_minio|${MINIO_GEN}|g" .env
-      else
-        sed -i "s|CHANGEME_jwt_secret_must_be_at_least_32_chars_long|${JWT_GEN}|g" .env
-        sed -i "s|CHANGEME_mot_de_passe_base_de_donnees|${PG_GEN}|g" .env
-        sed -i "s|CHANGEME_mot_de_passe_minio|${MINIO_GEN}|g" .env
-      fi
-
-      log_info "Secrets générés automatiquement"
+    if has_cmd openssl; then
+      local jwt_secret pg_pass minio_pass
+      jwt_secret=$(openssl rand -hex 32)
+      pg_pass=$(openssl rand -hex 12)
+      minio_pass=$(openssl rand -hex 12)
+      sed_inplace "s|CHANGEME_jwt_secret_must_be_at_least_32_chars_long|${jwt_secret}|g" .env
+      sed_inplace "s|CHANGEME_mot_de_passe_base_de_donnees|${pg_pass}|g"                .env
+      sed_inplace "s|CHANGEME_mot_de_passe_minio|${minio_pass}|g"                       .env
+      log_info "Secrets générés automatiquement (JWT, BDD, MinIO)"
     else
-      log_warn "openssl absent — modifiez manuellement les valeurs CHANGEME dans .env"
+      log_warn "openssl absent — remplacez les valeurs CHANGEME dans .env manuellement."
     fi
 
-    log_warn "Conservez le fichier .env en lieu sûr. Ne le commitez jamais dans git."
+    log_warn "Gardez le fichier .env secret. Ne le commitez jamais dans git."
   else
-    log_info "Fichier .env existant détecté"
+    log_info "Fichier .env existant conservé"
   fi
 
-  # Chargement des variables pour vérification
-  set -a; source .env 2>/dev/null || true; set +a
+  # Charger les variables d'env
+  set -a
+  # shellcheck disable=SC1091
+  source .env 2>/dev/null || true
+  set +a
 
+  # Vérifier que JWT_SECRET est configuré
   if [[ "${JWT_SECRET:-}" == *"CHANGEME"* ]] || [ -z "${JWT_SECRET:-}" ]; then
-    log_warn "JWT_SECRET contient encore une valeur CHANGEME dans .env"
-    log_warn "Éditez .env et relancez ./run.sh"
+    log_error "JWT_SECRET non configuré dans .env"
+    echo ""
+    echo "  Éditez le fichier .env et remplacez la valeur JWT_SECRET."
+    echo "  Astuce : générez un secret avec :  openssl rand -hex 32"
+    echo ""
     exit 1
   fi
 }
 
-# ─── Attendre que l'application soit prête ────────────────────────
+# ══════════════════════════════════════════════════════════════════
+#  Vérifications système légères
+# ══════════════════════════════════════════════════════════════════
+check_prerequisites() {
+  local missing=()
+
+  has_cmd curl  || missing+=("curl")
+  has_cmd git   || missing+=("git (optionnel pour update)")
+
+  if [ ${#missing[@]} -gt 0 ]; then
+    if [[ "${missing[*]}" == *"curl"* ]]; then
+      log_warn "curl absent — installation..."
+      if is_debian; then
+        $SUDO apt-get install -y -qq curl
+        log_info "curl installé"
+      else
+        log_error "curl est requis. Installez-le et relancez : ./run.sh"
+        exit 1
+      fi
+    fi
+  fi
+}
+
+# ══════════════════════════════════════════════════════════════════
+#  Attendre que l'application soit prête
+# ══════════════════════════════════════════════════════════════════
 wait_ready() {
   local port="${APP_PORT:-80}"
   local max=40
-  echo -n "  Attente du démarrage"
-  for i in $(seq 1 $max); do
+  local i=0
+  echo -n "  Attente du démarrage de l'application"
+  while [ $i -lt $max ]; do
     if curl -sf "http://localhost:${port}/api/health" &>/dev/null; then
       echo ""
       return 0
     fi
     echo -n "."
     sleep 3
+    i=$((i + 1))
   done
   echo ""
-  log_warn "L'application met du temps à démarrer. Vérifiez : ./run.sh logs"
+  log_warn "L'application tarde à répondre (${max} tentatives)."
+  log_warn "Vérifiez les logs avec :  ./run.sh logs"
 }
 
-# ─── Afficher les URLs d'accès ────────────────────────────────────
+# ══════════════════════════════════════════════════════════════════
+#  Afficher les URLs de l'application
+# ══════════════════════════════════════════════════════════════════
 print_urls() {
-  set -a; source .env 2>/dev/null || true; set +a
+  set -a
+  # shellcheck disable=SC1091
+  source .env 2>/dev/null || true
+  set +a
+
   local port="${APP_PORT:-80}"
   local minio_console="${MINIO_CONSOLE_PORT:-9001}"
-  local seed_enabled="${SEED_DB:-false}"
 
   echo ""
   echo -e "${GREEN}${BOLD}╔══════════════════════════════════════════════╗${NC}"
@@ -170,53 +398,67 @@ print_urls() {
   echo -e "  ${BOLD}API Health   :${NC}  http://localhost:${port}/api/health"
   echo -e "  ${BOLD}Console MinIO:${NC}  http://localhost:${minio_console}"
   echo ""
-  if [ "$seed_enabled" = "true" ]; then
+  if [ "${SEED_DB:-false}" = "true" ]; then
     echo -e "${CYAN}  Comptes de démonstration :${NC}"
-    echo "    admin@gmao.fr    / Admin1234!    (Administrateur)"
-    echo "    manager@gmao.fr  / Manager1234!  (Manager)"
-    echo "    tech1@gmao.fr    / Tech1234!     (Technicien)"
+    echo "    admin@gmao.fr   / Admin1234!   (Administrateur)"
+    echo "    manager@gmao.fr / Manager1234! (Manager)"
+    echo "    tech1@gmao.fr   / Tech1234!    (Technicien)"
     echo ""
   fi
   echo -e "${CYAN}  Commandes utiles :${NC}"
   echo "    ./run.sh logs [service]  — logs en temps réel"
   echo "    ./run.sh stop            — arrêter les services"
+  echo "    ./run.sh restart         — redémarrer les services"
   echo "    ./run.sh status          — état des conteneurs"
   echo "    ./run.sh seed            — injecter données de démo"
+  echo "    ./run.sh reset           — ⚠  tout réinitialiser"
   echo "    ./run.sh help            — toutes les commandes"
   echo ""
 }
 
 # ══════════════════════════════════════════════════════════════════
-#  Commandes
+#  Point d'entrée principal
 # ══════════════════════════════════════════════════════════════════
 
 CMD="${1:-up}"
-COMPOSE_CMD=$(detect_compose 2>/dev/null || echo "docker compose")
+
+# Toujours rendre le script exécutable (au cas où livré sans +x)
+[ ! -x "${BASH_SOURCE[0]}" ] && chmod +x "${BASH_SOURCE[0]}" 2>/dev/null || true
 
 case "$CMD" in
 
   # ─── Démarrer (défaut) ─────────────────────────────────────────
   up|start|"")
     print_banner
+    acquire_sudo       # demande le mot de passe une seule fois si nécessaire
     check_prerequisites
-    COMPOSE_CMD=$(detect_compose)
-    setup_env
+    setup_docker       # vérifie / installe Docker
+    setup_env          # crée / vérifie .env
 
-    # Option --seed : activer les données de démo
+    # Option --seed ou -s
     if [[ "${2:-}" == "--seed" || "${2:-}" == "-s" ]]; then
-      if [[ "$OSTYPE" == "darwin"* ]]; then
-        sed -i '' 's/^SEED_DB=.*/SEED_DB=true/' .env
-      else
-        sed -i 's/^SEED_DB=.*/SEED_DB=true/' .env
-      fi
-      log_info "Mode seed activé (données de démonstration)"
+      sed_inplace 's/^SEED_DB=.*/SEED_DB=true/' .env
+      set -a; source .env 2>/dev/null || true; set +a
+      log_info "Mode seed activé — données de démonstration incluses"
     fi
 
     log_step "Construction des images Docker"
-    $COMPOSE_CMD build --parallel
+    if ! $DC build --parallel; then
+      log_error "Échec de la construction des images Docker."
+      echo ""
+      echo "  Conseils de dépannage :"
+      echo "    • Vérifiez votre connexion internet"
+      echo "    • Consultez les logs ci-dessus pour l'erreur exacte"
+      echo "    • Réessayez : ./run.sh"
+      exit 1
+    fi
 
     log_step "Démarrage de tous les services"
-    $COMPOSE_CMD up -d
+    if ! $DC up -d; then
+      log_error "Échec du démarrage des services."
+      echo "  Consultez les logs : ./run.sh logs"
+      exit 1
+    fi
 
     wait_ready
     print_urls
@@ -224,111 +466,126 @@ case "$CMD" in
 
   # ─── Arrêter ───────────────────────────────────────────────────
   stop)
+    acquire_sudo
+    setup_docker
     log_step "Arrêt des services"
-    $COMPOSE_CMD stop
-    log_info "Services arrêtés (les données sont conservées)."
+    $DC stop
+    log_info "Services arrêtés (données conservées)."
     ;;
 
   # ─── Redémarrer ────────────────────────────────────────────────
   restart)
+    acquire_sudo
+    setup_docker
     log_step "Redémarrage des services"
-    $COMPOSE_CMD restart
+    $DC restart
     log_info "Services redémarrés."
     ;;
 
   # ─── Supprimer les conteneurs (données conservées) ─────────────
   down)
-    log_step "Arrêt et suppression des conteneurs"
+    acquire_sudo
+    setup_docker
+    log_step "Suppression des conteneurs"
     log_warn "Les volumes de données (BDD, fichiers) sont conservés."
-    $COMPOSE_CMD down
+    $DC down
     log_info "Conteneurs supprimés."
     ;;
 
   # ─── Tout supprimer (données incluses) ─────────────────────────
   reset)
+    acquire_sudo
+    setup_docker
     echo ""
-    log_warn "ATTENTION : cette commande supprime TOUTES les données."
-    log_warn "La base de données et les fichiers MinIO seront perdus définitivement."
+    log_warn "ATTENTION : cette opération supprime TOUTES les données (BDD + fichiers MinIO)."
     echo ""
     read -r -p "  Tapez 'oui' pour confirmer : " CONFIRM
     if [ "$CONFIRM" = "oui" ]; then
-      $COMPOSE_CMD down -v --remove-orphans
+      $DC down -v --remove-orphans
       log_info "Tout supprimé (conteneurs + volumes)."
     else
-      log_info "Annulé."
+      log_info "Annulé — aucune donnée supprimée."
     fi
     ;;
 
-  # ─── Voir les logs ─────────────────────────────────────────────
+  # ─── Logs ──────────────────────────────────────────────────────
   logs)
-    SERVICE="${2:-}"
-    $COMPOSE_CMD logs -f --tail=150 $SERVICE
+    acquire_sudo
+    setup_docker
+    $DC logs -f --tail=150 ${2:-}
     ;;
 
-  # ─── État des conteneurs ───────────────────────────────────────
+  # ─── État ──────────────────────────────────────────────────────
   status|ps)
+    acquire_sudo
+    setup_docker
     log_step "État des services"
-    $COMPOSE_CMD ps
+    $DC ps
     ;;
 
-  # ─── Injecter les données de démo ──────────────────────────────
+  # ─── Seed ──────────────────────────────────────────────────────
   seed)
+    acquire_sudo
+    setup_docker
     log_step "Injection des données de démonstration"
-    $COMPOSE_CMD exec backend sh -c "
-      rm -f /var/lib/gmao/.seed_done
-      cd /app/backend && node prisma/seed.js
-    " && log_info "Données de démo injectées avec succès." \
-      || log_error "Erreur lors du seed. Vérifiez : ./run.sh logs backend"
+    $DC exec backend sh -c "rm -f /var/lib/gmao/.seed_done && cd /app/backend && node prisma/seed.js" \
+      && log_info "Seed terminé avec succès." \
+      || { log_error "Erreur lors du seed. Vérifiez : ./run.sh logs backend"; exit 1; }
     ;;
 
-  # ─── Mettre à jour l'application ───────────────────────────────
+  # ─── Mise à jour ───────────────────────────────────────────────
   update)
+    acquire_sudo
+    setup_docker
     log_step "Mise à jour de l'application"
-    if command -v git &>/dev/null && [ -d ".git" ]; then
+    if [ -d ".git" ]; then
       git pull --ff-only && log_info "Code mis à jour depuis git."
+    else
+      log_warn "Pas de dépôt git détecté — mise à jour du code ignorée."
     fi
-    $COMPOSE_CMD build --parallel
-    $COMPOSE_CMD up -d
+    $DC build --parallel
+    $DC up -d
     log_info "Application mise à jour et redémarrée."
     ;;
 
-  # ─── Ouvrir un shell dans un conteneur ─────────────────────────
+  # ─── Shell interactif ──────────────────────────────────────────
   shell)
-    SERVICE="${2:-backend}"
-    log_step "Shell interactif dans le conteneur : $SERVICE"
-    $COMPOSE_CMD exec "$SERVICE" sh
+    acquire_sudo
+    setup_docker
+    local svc="${2:-backend}"
+    log_info "Ouverture d'un shell dans le conteneur '${svc}'..."
+    $DC exec "$svc" sh
     ;;
 
   # ─── Aide ──────────────────────────────────────────────────────
   help|-h|--help)
     print_banner
-    echo -e "${BOLD}Usage :${NC}  ./run.sh [commande] [options]"
+    echo -e "${BOLD}Usage :${NC}  ./run.sh [commande] [option]"
     echo ""
     echo -e "${BOLD}Commandes :${NC}"
-    echo "  up [--seed]        Construire et démarrer l'application"
-    echo "                       --seed : injecter des données de démonstration"
-    echo "  stop               Arrêter les services (données conservées)"
-    echo "  restart            Redémarrer les services"
-    echo "  down               Supprimer les conteneurs (données conservées)"
-    echo "  reset              ⚠  Tout supprimer, données incluses"
-    echo "  logs [service]     Voir les logs (service : backend|nginx|postgres|minio)"
-    echo "  status             État de tous les conteneurs"
-    echo "  seed               Injecter les données de démonstration"
-    echo "  update             Mettre à jour l'application (git pull + rebuild)"
-    echo "  shell [service]    Ouvrir un shell dans un conteneur"
-    echo "  help               Afficher cette aide"
+    echo "  (aucune) / up [--seed]   Installer, configurer et démarrer"
+    echo "  stop                     Arrêter les services (données conservées)"
+    echo "  restart                  Redémarrer les services"
+    echo "  down                     Supprimer les conteneurs (données conservées)"
+    echo "  reset                    ⚠  Tout supprimer y compris les données"
+    echo "  logs [service]           Logs temps réel (backend|nginx|postgres|minio)"
+    echo "  status                   État de tous les conteneurs"
+    echo "  seed                     Injecter les données de démonstration"
+    echo "  update                   git pull + rebuild + restart"
+    echo "  shell [service]          Shell dans un conteneur (défaut : backend)"
     echo ""
     echo -e "${BOLD}Exemples :${NC}"
-    echo "  ./run.sh                   # Premier démarrage"
-    echo "  ./run.sh up --seed         # Démarrage avec données de démo"
-    echo "  ./run.sh logs backend      # Logs du backend uniquement"
-    echo "  ./run.sh shell postgres    # Shell dans PostgreSQL"
+    echo "  ./run.sh              # Premier démarrage (installe Docker si besoin)"
+    echo "  ./run.sh --seed       # Avec données de démo"
+    echo "  ./run.sh up --seed    # Identique"
+    echo "  ./run.sh logs backend # Logs du backend en temps réel"
+    echo "  ./run.sh shell nginx  # Shell dans le conteneur nginx"
     echo ""
     ;;
 
   *)
-    log_error "Commande inconnue : '$CMD'"
-    echo "  Lancez ./run.sh help pour voir les commandes disponibles."
+    log_error "Commande inconnue : '$CMD'."
+    echo "  Lancez  ./run.sh help  pour la liste des commandes."
     exit 1
     ;;
 esac
