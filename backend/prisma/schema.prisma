@@ -1,0 +1,266 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────────────────────
+// Enums
+// ─────────────────────────────────────────────
+
+enum Role {
+  admin
+  manager
+  technician
+}
+
+enum InterventionStatus {
+  created
+  assigned
+  in_progress
+  waiting
+  completed
+  cancelled
+}
+
+enum InterventionPriority {
+  low
+  medium
+  high
+  urgent
+}
+
+enum ClientType {
+  PARTICULIER
+  ENTREPRISE
+}
+
+enum HousingType {
+  APPARTEMENT
+  MAISON
+}
+
+enum AssignmentStatus {
+  PENDING
+  ACCEPTED
+  REFUSED
+}
+
+enum TimeLogType {
+  START
+  PAUSE
+  RESUME
+  END
+}
+
+
+// ─────────────────────────────────────────────
+// Models
+// ─────────────────────────────────────────────
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  name      String
+  role      Role     @default(technician)
+  phone     String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  refreshTokens      RefreshToken[]
+  assignedInterventions InterventionAssignment[]
+  createdInterventions  Intervention[]         @relation("CreatedBy")
+  timeLogs           InterventionTimeLog[]
+  auditLogs          AuditLog[]
+  notifications      Notification[]
+  uploadedMedia      InterventionMedia[]
+
+  @@index([email])
+  @@map("users")
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  isRevoked Boolean  @default(false)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([token])
+  @@index([userId])
+  @@map("refresh_tokens")
+}
+
+model TokenBlacklist {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  createdAt DateTime @default(now())
+
+  @@map("token_blacklist")
+}
+
+model Client {
+  id          String       @id @default(uuid())
+  type        ClientType   @default(PARTICULIER)
+  firstName   String
+  lastName    String
+  companyName String?
+  siret       String?
+  email       String?
+  phone       String
+  address     String
+  city        String
+  housingType HousingType?
+  notes       String?
+  isActive    Boolean      @default(true)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  interventions Intervention[]
+
+  @@index([lastName])
+  @@map("clients")
+}
+
+model Intervention {
+  id               String               @id @default(uuid())
+  number           String               @unique
+  type             String
+  description      String?
+  address          String?
+  status           InterventionStatus   @default(created)
+  priority         InterventionPriority @default(medium)
+  scheduledDate    DateTime?
+  scheduledTime    String?
+  durationEstimated Int?                // in minutes
+  durationActual    Int?                // in minutes
+  startedAt        DateTime?
+  completedAt      DateTime?
+  notes            String?
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+
+  // Foreign keys
+  clientId  String
+  createdById String
+
+  // Relations
+  client      Client                  @relation(fields: [clientId], references: [id])
+  createdBy   User                    @relation("CreatedBy", fields: [createdById], references: [id])
+  technicians InterventionAssignment[]
+  timeLogs    InterventionTimeLog[]
+  media       InterventionMedia[]
+
+
+  @@index([status])
+  @@index([scheduledDate])
+  @@index([clientId])
+  @@index([number])
+  @@map("interventions")
+}
+
+model InterventionAssignment {
+  id             String   @id @default(uuid())
+  interventionId String
+  userId         String
+  assignedAt     DateTime @default(now())
+  status         AssignmentStatus @default(PENDING)
+
+  intervention Intervention @relation(fields: [interventionId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([interventionId, userId])
+  @@map("intervention_assignments")
+}
+
+model InterventionTimeLog {
+  id             String      @id @default(uuid())
+  interventionId String
+  userId         String
+  type           TimeLogType
+  timestamp      DateTime    @default(now())
+  
+  intervention   Intervention @relation(fields: [interventionId], references: [id], onDelete: Cascade)
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("intervention_time_logs")
+}
+
+// ─────────────────────────────────────────────
+// SaaS Expansion Models
+// ─────────────────────────────────────────────
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  userId    String?
+  action    String
+  entity    String
+  entityId  String?
+  metadata  Json?
+  ip        String?
+  createdAt DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([entity, entityId])
+  @@index([userId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+enum NotificationType {
+  INFO
+  SUCCESS
+  WARNING
+  ERROR
+}
+
+model Notification {
+  id        String           @id @default(uuid())
+  userId    String
+  type      NotificationType @default(INFO)
+  title     String
+  message   String
+  isRead    Boolean          @default(false)
+  link      String?
+  createdAt DateTime         @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead])
+  @@map("notifications")
+}
+
+enum MediaType {
+  PHOTO
+  SIGNATURE
+  DOCUMENT
+}
+
+model InterventionMedia {
+  id             String    @id @default(uuid())
+  interventionId String
+  type           MediaType
+  url            String
+  filename       String?
+  uploadedById   String
+  createdAt      DateTime  @default(now())
+
+  intervention Intervention @relation(fields: [interventionId], references: [id], onDelete: Cascade)
+  uploadedBy   User         @relation(fields: [uploadedById], references: [id], onDelete: Cascade)
+
+  @@index([interventionId])
+  @@map("intervention_media")
+}
