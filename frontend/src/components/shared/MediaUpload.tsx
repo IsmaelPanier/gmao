@@ -35,9 +35,7 @@ export function MediaUpload({ interventionId, onUploadSuccess }: MediaUploadProp
         const formData = new FormData();
         formData.append("file", fileToUpload);
         formData.append("type", "PHOTO");
-        await api.post(`/api/files/interventions/${interventionId}`, formData, {
-          headers: { "Content-Type": "multipart/form-data" },
-        });
+        await api.post(`/files/interventions/${interventionId}`, formData);
         toast.success("Média envoyé avec succès !");
         onUploadSuccess?.();
       } else {
@@ -46,7 +44,7 @@ export function MediaUpload({ interventionId, onUploadSuccess }: MediaUploadProp
         reader.onloadend = () => {
           addAction({
             type: "UPLOAD_MEDIA",
-            endpoint: `/api/files/interventions/${interventionId}`,
+            endpoint: `/files/interventions/${interventionId}`,
             method: "POST",
             payload: {
               interventionId,

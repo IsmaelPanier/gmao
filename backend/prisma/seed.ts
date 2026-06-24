@@ -6,10 +6,15 @@ const prisma = new PrismaClient();
 async function main() {
   console.log("🌱 Starting database seed...\n");
 
-  // ─── Cleanup ───────────────────────────────────
+  // ─── Cleanup (ordre FK strict) ─────────────────
   await prisma.interventionAssignment.deleteMany();
+  await prisma.interventionTimeLog.deleteMany();
+  await prisma.interventionMedia.deleteMany();
+  await prisma.notification.deleteMany();
+  await prisma.auditLog.deleteMany();
   await prisma.intervention.deleteMany();
   await prisma.client.deleteMany();
+  await prisma.tokenBlacklist.deleteMany();
   await prisma.refreshToken.deleteMany();
   await prisma.user.deleteMany();
   console.log("✓ Cleaned existing data");

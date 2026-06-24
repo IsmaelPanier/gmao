@@ -42,7 +42,7 @@ export const InterventionsRepository = {
         ? {
             scheduledDate: {
               ...(dateFrom && { gte: new Date(dateFrom) }),
-              ...(dateTo && { lte: new Date(dateTo + "T23:59:59") }),
+              ...(dateTo && { lte: new Date(dateTo + "T23:59:59.999Z") }),
             },
           }
         : {}),

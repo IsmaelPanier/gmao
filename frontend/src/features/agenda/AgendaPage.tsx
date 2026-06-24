@@ -19,14 +19,14 @@ export default function AgendaPage() {
   const { data, isLoading } = useQuery({
     queryKey: ["interventions"],
     queryFn: async () => {
-      const { data } = await api.get("/api/interventions?limit=500");
+      const { data } = await api.get("/interventions?limit=500");
       return data;
     },
   });
 
   const updateScheduleMutation = useMutation({
     mutationFn: (args: { id: string; scheduledDate: string; scheduledTime: string }) =>
-      api.patch(`/api/interventions/${args.id}`, {
+      api.patch(`/interventions/${args.id}`, {
         scheduledDate: args.scheduledDate,
         scheduledTime: args.scheduledTime,
       }),

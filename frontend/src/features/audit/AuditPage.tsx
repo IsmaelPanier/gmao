@@ -12,7 +12,7 @@ export default function AuditPage() {
   const { data, isLoading } = useQuery({
     queryKey: ["audit-logs"],
     queryFn: async () => {
-      const { data } = await api.get("/api/audit?limit=100");
+      const { data } = await api.get("/audit?limit=100");
       return data;
     },
   });

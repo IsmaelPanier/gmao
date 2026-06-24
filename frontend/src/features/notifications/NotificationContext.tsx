@@ -33,7 +33,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
 
   const fetchNotifications = async () => {
     try {
-      const res = await api.get("/api/notifications?limit=50");
+      const res = await api.get("/notifications?limit=50");
       setNotifications(res.data.data);
     } catch (err) {
       console.error("Failed to fetch notifications", err);
@@ -74,7 +74,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
 
   const markAsRead = async (id: string) => {
     try {
-      await api.post(`/api/notifications/${id}/read`);
+      await api.post(`/notifications/${id}/read`);
       setNotifications((prev) =>
         prev.map((n) => (n.id === id ? { ...n, isRead: true } : n))
       );
@@ -85,7 +85,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
 
   const markAllAsRead = async () => {
     try {
-      await api.post("/api/notifications/mark-all-read");
+      await api.post("/notifications/mark-all-read");
       setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
     } catch (err) {
       console.error(err);
