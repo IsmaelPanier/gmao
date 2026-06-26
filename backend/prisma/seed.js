@@ -8,10 +8,15 @@ const bcryptjs_1 = __importDefault(require("bcryptjs"));
 const prisma = new client_1.PrismaClient();
 async function main() {
     console.log("🌱 Starting database seed...\n");
-    // ─── Cleanup ───────────────────────────────────
+    // ─── Cleanup (ordre FK strict) ─────────────────
     await prisma.interventionAssignment.deleteMany();
+    await prisma.interventionTimeLog.deleteMany();
+    await prisma.interventionMedia.deleteMany();
+    await prisma.notification.deleteMany();
+    await prisma.auditLog.deleteMany();
     await prisma.intervention.deleteMany();
     await prisma.client.deleteMany();
+    await prisma.tokenBlacklist.deleteMany();
     await prisma.refreshToken.deleteMany();
     await prisma.user.deleteMany();
     console.log("✓ Cleaned existing data");
@@ -96,8 +101,9 @@ async function main() {
     const clients = await Promise.all([
         prisma.client.create({
             data: {
-                name: "Hôtel Lux & Spa",
-                company: "Lux Group SAS",
+                type: client_1.ClientType.ENTREPRISE,
+                firstName: "Direction",
+                lastName: "Lux Group SAS",
                 email: "contact@luxspa.fr",
                 phone: "0140203040",
                 address: "45 Avenue des Champs-Élysées",
@@ -106,8 +112,9 @@ async function main() {
         }),
         prisma.client.create({
             data: {
-                name: "Restaurant Le Délice",
-                company: "Délice SAS",
+                type: client_1.ClientType.ENTREPRISE,
+                firstName: "Manager",
+                lastName: "Délice SAS",
                 email: "manager@delice.fr",
                 phone: "0491001122",
                 address: "12 Rue de la République",
@@ -116,18 +123,21 @@ async function main() {
         }),
         prisma.client.create({
             data: {
-                name: "Centre Commercial Riviera",
-                company: "Riviera Mall SARL",
-                email: "direction@rivieramall.fr",
+                type: client_1.ClientType.PARTICULIER,
+                firstName: "Marc",
+                lastName: "Riviera",
+                email: "marc@riviera.fr",
                 phone: "0493202030",
                 address: "1 Avenue de la Victoire",
                 city: "Nice (06000)",
+                housingType: client_1.HousingType.APPARTEMENT,
             },
         }),
         prisma.client.create({
             data: {
-                name: "Clinique Saint-Louis",
-                company: "Clinique SL SA",
+                type: client_1.ClientType.ENTREPRISE,
+                firstName: "Service Technique",
+                lastName: "Clinique SL SA",
                 email: "technique@stlouis.fr",
                 phone: "0321005060",
                 address: "5 Rue du Professeur Laguesse",
@@ -136,18 +146,21 @@ async function main() {
         }),
         prisma.client.create({
             data: {
-                name: "Bureau Technopole Atlantis",
-                company: "Atlantis Immobilier",
+                type: client_1.ClientType.PARTICULIER,
+                firstName: "Sophie",
+                lastName: "Martin",
                 email: "fm@atlantis-tech.fr",
                 phone: "0240506070",
                 address: "2 Rue de la Beaujoire",
                 city: "Nantes (44300)",
+                housingType: client_1.HousingType.MAISON,
             },
         }),
         prisma.client.create({
             data: {
-                name: "Supermarché FraîchePlus",
-                company: "FraîchePlus SA",
+                type: client_1.ClientType.ENTREPRISE,
+                firstName: "Maintenance",
+                lastName: "FraîchePlus SA",
                 email: "maintenance@fraicheplus.fr",
                 phone: "0567891011",
                 address: "100 Route du Commerce",
@@ -156,8 +169,9 @@ async function main() {
         }),
         prisma.client.create({
             data: {
-                name: "Aéroport Régional Sud",
-                company: "Aéroport Sud Exploitation",
+                type: client_1.ClientType.ENTREPRISE,
+                firstName: "Direction",
+                lastName: "Aéroport Sud Exploitation",
                 email: "maintenance@ars-airport.fr",
                 phone: "0467001020",
                 address: "Route de Fréjorgues",
@@ -166,12 +180,14 @@ async function main() {
         }),
         prisma.client.create({
             data: {
-                name: "Université Lumière",
-                company: "Université Lumière",
-                email: "dsi@univ-lumiere.fr",
+                type: client_1.ClientType.PARTICULIER,
+                firstName: "Jean",
+                lastName: "Dupont",
+                email: "jean.dupont@email.fr",
                 phone: "0472000100",
                 address: "86 Rue Pasteur",
                 city: "Lyon (69007)",
+                housingType: client_1.HousingType.APPARTEMENT,
             },
         }),
     ]);
@@ -204,17 +220,17 @@ async function main() {
         { num: "INT-2026-011", type: "Dépannage Climatisation Urgence", status: client_1.InterventionStatus.in_progress, priority: client_1.InterventionPriority.urgent, client: clients[2], scheduledDate: today, techs: [tech1], duration: 90 },
         { num: "INT-2026-012", type: "Maintenance Préventive Trimestrielle", status: client_1.InterventionStatus.assigned, priority: client_1.InterventionPriority.medium, client: clients[3], scheduledDate: today, techs: [tech2], duration: 120 },
         { num: "INT-2026-013", type: "Contrôle Détection Gaz", status: client_1.InterventionStatus.assigned, priority: client_1.InterventionPriority.high, client: clients[4], scheduledDate: today, techs: [tech3], duration: 60 },
-        { num: "INT-2026-014", type: "Nettoyage Évaporateur", status: client_1.InterventionStatus.created, priority: client_1.InterventionPriority.low, client: clients[5], scheduledDate: today, techs: [], duration: 45 },
+        { num: "INT-2026-014", type: "Nettoyage Évaporateur", status: client_1.InterventionStatus.created, priority: client_1.InterventionPriority.low, client: clients[5], scheduledDate: today, techs: [tech4], duration: 45 },
         // Future
-        { num: "INT-2026-015", type: "Inspection Annuelle Chaudière", status: client_1.InterventionStatus.created, priority: client_1.InterventionPriority.medium, client: clients[6], scheduledDate: daysFwd(1), techs: [], duration: 120 },
+        { num: "INT-2026-015", type: "Inspection Annuelle Chaudière", status: client_1.InterventionStatus.assigned, priority: client_1.InterventionPriority.medium, client: clients[6], scheduledDate: daysFwd(1), techs: [tech5], duration: 120 },
         { num: "INT-2026-016", type: "Mise en service Pompe Chaleur", status: client_1.InterventionStatus.assigned, priority: client_1.InterventionPriority.high, client: clients[7], scheduledDate: daysFwd(2), techs: [tech4], duration: 180 },
-        { num: "INT-2026-017", type: "Remplacement Vanne Thermostatique", status: client_1.InterventionStatus.created, priority: client_1.InterventionPriority.low, client: clients[0], scheduledDate: daysFwd(3), techs: [], duration: 60 },
+        { num: "INT-2026-017", type: "Remplacement Vanne Thermostatique", status: client_1.InterventionStatus.created, priority: client_1.InterventionPriority.low, client: clients[0], scheduledDate: daysFwd(3), techs: [tech1], duration: 60 },
         { num: "INT-2026-018", type: "Diagnostic Panne Frigorigène", status: client_1.InterventionStatus.assigned, priority: client_1.InterventionPriority.urgent, client: clients[1], scheduledDate: daysFwd(4), techs: [tech5], duration: 90 },
-        { num: "INT-2026-019", type: "Maintenance Préventive Annuelle", status: client_1.InterventionStatus.created, priority: client_1.InterventionPriority.medium, client: clients[2], scheduledDate: daysFwd(7), techs: [], duration: 240 },
-        { num: "INT-2026-020", type: "Révision Centrale Air", status: client_1.InterventionStatus.created, priority: client_1.InterventionPriority.medium, client: clients[3], scheduledDate: daysFwd(10), techs: [], duration: 180 },
+        { num: "INT-2026-019", type: "Maintenance Préventive Annuelle", status: client_1.InterventionStatus.created, priority: client_1.InterventionPriority.medium, client: clients[2], scheduledDate: daysFwd(7), techs: [tech2], duration: 240 },
+        { num: "INT-2026-020", type: "Révision Centrale Air", status: client_1.InterventionStatus.created, priority: client_1.InterventionPriority.medium, client: clients[3], scheduledDate: daysFwd(10), techs: [tech3], duration: 180 },
         // Waiting / Cancelled
         { num: "INT-2026-021", type: "Réparation Compresseur", status: client_1.InterventionStatus.waiting, priority: client_1.InterventionPriority.high, client: clients[4], scheduledDate: daysAgo(3), techs: [tech1], duration: 0 },
-        { num: "INT-2026-022", type: "Diagnostic Réseau Froid", status: client_1.InterventionStatus.cancelled, priority: client_1.InterventionPriority.medium, client: clients[5], scheduledDate: daysAgo(5), techs: [], duration: 0 },
+        { num: "INT-2026-022", type: "Diagnostic Réseau Froid", status: client_1.InterventionStatus.cancelled, priority: client_1.InterventionPriority.medium, client: clients[5], scheduledDate: daysAgo(5), techs: [tech2], duration: 0 },
     ];
     let counter = 0;
     for (const item of interventionData) {
@@ -222,7 +238,7 @@ async function main() {
             data: {
                 number: item.num,
                 type: item.type,
-                description: `Intervention de type "${item.type}" chez ${item.client.name}.`,
+                description: `Intervention de type "${item.type}" chez ${item.client.lastName}.`,
                 address: item.client.address || "",
                 status: item.status,
                 priority: item.priority,
@@ -260,4 +276,3 @@ main()
     .finally(async () => {
     await prisma.$disconnect();
 });
-//# sourceMappingURL=seed.js.map

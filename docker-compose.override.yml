@@ -14,13 +14,15 @@ services:
     command: npm run dev --workspace=backend # Lance le serveur de dev
     environment:
       NODE_ENV: development
-      # Pour Vite, l'URL du frontend est le port exposé du conteneur Vite
+      # Pour le backend, l'URL du frontend (CORS) est le port Vite exposé
       FRONTEND_URL: http://localhost:5173
     volumes:
-      - ./backend:/app/backend # Monte le code source local
-      - ./frontend:/app/frontend # Contexte pour le workspace
-      - node_modules:/app/node_modules # Partage les dépendances
-    # Le port n'est pas exposé car le proxy de Vite le gère
+      - ./backend:/app/backend           # Monte le code source local
+      - ./frontend:/app/frontend         # Contexte pour le workspace
+      - node_modules:/app/node_modules   # Partage les dépendances racine
+      - /app/backend/node_modules        # Protège les node_modules du workspace backend
+    ports:
+      - "4000:4000"  # Expose le port backend (accès direct API / Postman)
     profiles:
       - dev
 
@@ -32,10 +34,13 @@ services:
     command: npm run dev --workspace=frontend -- --host # --host pour exposer
     environment:
       NODE_ENV: development
+      # Indique à Vite où se trouve le backend pour son proxy (réseau Docker interne)
+      VITE_BACKEND_URL: http://backend:4000
     volumes:
-      - ./backend:/app/backend # Contexte pour le workspace
-      - ./frontend:/app/frontend # Monte le code source local
-      - node_modules:/app/node_modules # Partage les dépendances
+      - ./backend:/app/backend           # Contexte pour le workspace
+      - ./frontend:/app/frontend         # Monte le code source local
+      - node_modules:/app/node_modules   # Partage les dépendances racine
+      - /app/frontend/node_modules       # Protège les node_modules du workspace frontend
     ports:
       - "5173:5173" # Expose le port de Vite
     depends_on:

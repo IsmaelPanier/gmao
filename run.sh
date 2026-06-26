@@ -433,7 +433,9 @@ wait_ready() {
   done
   echo ""
   log_warn "L'application tarde à répondre (${max} tentatives)."
-  log_warn "Vérifiez les logs avec :  ./run.sh ${PROFILE_FLAG} logs"
+  local _pflag=""
+  [ "$PROFILE" = "dev" ] && _pflag="--dev "
+  log_warn "Vérifiez les logs avec :  ./run.sh ${_pflag}logs"
 }
 
 # ══════════════════════════════════════════════════════════════════

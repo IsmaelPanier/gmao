@@ -2,6 +2,9 @@
 FROM node:20-alpine AS builder
 WORKDIR /app
 
+# Dépendance système requise par @prisma/client (engine binaire)
+RUN apk add --no-cache openssl
+
 # Copie des manifestes workspace (nécessaire pour npm ci)
 COPY package.json package-lock.json ./
 COPY backend/package.json ./backend/
@@ -20,6 +23,9 @@ RUN cd backend && npx tsc --project tsconfig.json
 # ── Étape 2 : Image de production ─────────────────────────────────
 FROM node:20-alpine AS production
 WORKDIR /app
+
+# Dépendance système requise par @prisma/client (engine binaire)
+RUN apk add --no-cache openssl
 
 ENV NODE_ENV=production
 

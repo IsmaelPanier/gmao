@@ -9,6 +9,9 @@
 FROM node:20-alpine
 WORKDIR /app
 
+# Dépendance système requise par @prisma/client (engine binaire)
+RUN apk add --no-cache openssl
+
 # Copie des manifestes de paquets de tout le workspace
 COPY package.json package-lock.json ./
 COPY backend/package.json ./backend/
@@ -18,5 +21,12 @@ COPY frontend/package.json ./frontend/
 # On utilise `npm install` qui est plus flexible pour le développement.
 RUN npm install --no-audit --no-fund
 
+# Copie du schema Prisma pour générer le client pendant le build
+COPY backend/prisma/schema.prisma ./backend/prisma/schema.prisma
+
+# Génération du client Prisma (nécessaire avant le démarrage du backend)
+RUN npx prisma generate --schema=backend/prisma/schema.prisma
+
 # Le point d'entrée/commande sera défini dans docker-compose.override.yml
 # Le code source sera monté en volume dans /app
+
