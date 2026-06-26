@@ -10,6 +10,7 @@ const INCLUDE_FULL = {
       user: { select: { id: true, name: true, email: true, phone: true, role: true } },
     },
   },
+  media: true,
 };
 
 export const InterventionsRepository = {

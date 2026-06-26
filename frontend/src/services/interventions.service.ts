@@ -49,6 +49,14 @@ const InterventionsService = {
   async timeLog(id: string, type: "START" | "PAUSE" | "RESUME" | "END"): Promise<void> {
     await api.post(`/interventions/${id}/time-log`, { type });
   },
+
+  async uploadMedia(id: string, files: File[]): Promise<void> {
+    const formData = new FormData();
+    files.forEach((file) => formData.append("photos", file));
+    await api.post(`/interventions/${id}/media`, formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+  },
 };
 
 export default InterventionsService;

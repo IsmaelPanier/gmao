@@ -10,6 +10,7 @@ export type InterventionStatus =
   | "cancelled";
 
 export type InterventionPriority = "low" | "medium" | "high" | "urgent";
+export type MediaType = "PHOTO" | "SIGNATURE" | "DOCUMENT";
 
 // ─── User ─────────────────────────────────────────────────────
 export interface User {
@@ -77,6 +78,18 @@ export interface Intervention {
   createdById: string;
   createdBy: Pick<User, "id" | "name" | "email">;
   technicians: InterventionTechnician[];
+  media?: InterventionMedia[];
+}
+
+export interface InterventionMedia {
+  id: string;
+  interventionId: string;
+  type: MediaType;
+  url: string;
+  filename?: string | null;
+  uploadedById: string;
+  createdAt: string;
+  uploadedBy?: Pick<User, "id" | "name" | "email">;
 }
 
 // ─── Dashboard ────────────────────────────────────────────────

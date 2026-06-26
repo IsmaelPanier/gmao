@@ -4,6 +4,10 @@ import { CreateInterventionDto, ListInterventionsQuery, UpdateInterventionDto } 
 import { JwtPayload } from "../../shared/types";
 import { InterventionStatus } from "@prisma/client";
 import { NotificationsService } from "../notifications/notifications.service";
+import { minioClient, BUCKET_NAME } from "../../config/minio";
+import prisma from "../../config/database";
+import crypto from "crypto";
+import path from "path";
 
 // Valid status transitions
 const STATUS_TRANSITIONS: Record<InterventionStatus, InterventionStatus[]> = {
@@ -171,5 +175,53 @@ export const InterventionsService = {
     }
 
     return log;
+  },
+
+  async uploadMedia(id: string, files: Express.Multer.File[], currentUser: JwtPayload) {
+    const intervention = await InterventionsService.findById(id, currentUser);
+    
+    // Check if user is assigned or is manager/admin
+    if (currentUser.role === "technician") {
+      const isAssigned = intervention.technicians.some((t) => t.userId === currentUser.sub);
+      if (!isAssigned) throw AppError.forbidden("Vous n'êtes pas assigné à cette intervention.");
+    }
+
+    const uploadedMedia = [];
+
+    for (const file of files) {
+      // Generate a unique filename: interventionId/timestamp-random.ext
+      const ext = path.extname(file.originalname);
+      const uniqueName = `${id}/${Date.now()}-${crypto.randomBytes(4).toString('hex')}${ext}`;
+      
+      // Upload to MinIO
+      await minioClient.putObject(
+        BUCKET_NAME,
+        uniqueName,
+        file.buffer,
+        file.size,
+        { 'Content-Type': file.mimetype }
+      );
+
+      // Public URL assuming MinIO is accessible at localhost:9000 (adjust if needed in production)
+      // Since it's dockerized, we can return the relative path or full URL.
+      // The frontend can construct the URL or we store the full MinIO URL.
+      // Using /gmao-media/ path for direct access if proxy is setup, or full URL
+      const url = `http://localhost:9000/${BUCKET_NAME}/${uniqueName}`;
+
+      // Save to database
+      const media = await prisma.interventionMedia.create({
+        data: {
+          interventionId: id,
+          type: "PHOTO",
+          url: url,
+          filename: file.originalname,
+          uploadedById: currentUser.sub,
+        },
+      });
+
+      uploadedMedia.push(media);
+    }
+
+    return uploadedMedia;
   },
 };

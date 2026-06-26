@@ -114,7 +114,7 @@ export default function AgendaPage() {
             <FullCalendar
               ref={calendarRef}
               plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
-              initialView="timeGridWeek"
+              initialView="dayGridMonth"
               headerToolbar={{
                 left: "prev,next today",
                 center: "title",

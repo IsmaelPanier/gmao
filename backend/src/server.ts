@@ -3,6 +3,7 @@ import { env } from "./config/env";
 import { logger } from "./config/logger";
 import prisma from "./config/database";
 import { initSocket } from "./modules/notifications/socket";
+import { initMinio } from "./config/minio";
 import http from "http";
 
 async function bootstrap() {
@@ -20,6 +21,9 @@ async function bootstrap() {
 
   // Initialize WebSockets
   initSocket(server);
+
+  // Initialize MinIO
+  await initMinio();
 
   server.listen(env.PORT, () => {
     logger.info(`🚀 GMAO API running on http://localhost:${env.PORT}`);

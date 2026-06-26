@@ -44,4 +44,13 @@ export const InterventionsController = {
       res.json(success(await InterventionsService.timeLog(req.params.id as string, req.body, req.user!), "Pointage enregistré"));
     } catch (err) { next(err); }
   },
+  async uploadMedia(req: Request, res: Response, next: NextFunction) {
+    try {
+      const files = req.files as Express.Multer.File[];
+      if (!files || files.length === 0) {
+        return res.status(400).json({ success: false, error: { message: "No files uploaded" } });
+      }
+      res.status(201).json(success(await InterventionsService.uploadMedia(req.params.id as string, files, req.user!), "Médias ajoutés avec succès"));
+    } catch (err) { next(err); }
+  },
 };

@@ -5,6 +5,7 @@ import { requireRole } from "../../middlewares/rbac.middleware";
 import { validate } from "../../middlewares/validate.middleware";
 import { createInterventionSchema, updateInterventionSchema, listInterventionsSchema, timeLogSchema } from "./interventions.dto";
 import { auditLog } from "../../middlewares/audit.middleware";
+import { upload } from "../../middlewares/upload.middleware";
 
 const router = Router();
 router.use(authenticate);
@@ -26,5 +27,6 @@ router.delete("/:id", requireRole("admin", "manager"), auditLog("Intervention"),
 router.post("/:id/accept", InterventionsController.accept);
 router.post("/:id/refuse", InterventionsController.refuse);
 router.post("/:id/time-log", validate(timeLogSchema), InterventionsController.timeLog);
+router.post("/:id/media", upload.array("photos", 10), InterventionsController.uploadMedia);
 
 export default router;

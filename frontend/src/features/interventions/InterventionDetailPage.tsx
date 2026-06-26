@@ -15,7 +15,7 @@ import { toast } from "sonner";
 import { ArrowLeft, MapPin, Clock, User, Calendar, Edit2, Trash2, Users } from "lucide-react";
 import type { InterventionStatus } from "@/types";
 import { useAuth } from "@/features/auth/AuthContext";
-import { MediaUpload } from "@/components/shared/MediaUpload";
+import { InterventionPhotos } from "./components/InterventionPhotos";
 
 // Status transition map (mirrors backend)
 const ALLOWED_TRANSITIONS: Record<InterventionStatus, InterventionStatus[]> = {
@@ -309,8 +309,11 @@ export default function InterventionDetailPage() {
 
       {/* Media Upload */}
       <div className="bg-card border border-border rounded-lg p-5 space-y-4">
-        <div className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2">Médias & Photos</div>
-        <MediaUpload interventionId={id!} />
+        <InterventionPhotos 
+          interventionId={id!} 
+          media={intervention.media || []} 
+          canEdit={true} // Tous les rôles peuvent voir l'UI pour l'instant (à affiner selon les besoins)
+        />
       </div>
 
       {/* Timestamps */}
