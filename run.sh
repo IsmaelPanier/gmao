@@ -20,8 +20,12 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
 
 # ─── Variables globales ────────────────────────────────────────────
-SUDO=""   # sera positionné à "sudo" si nécessaire
-DC=""     # commande docker compose finale
+SUDO=""         # sera positionné à "sudo" si nécessaire
+DC=""           # commande docker compose finale
+PROFILE="prod"  # 'prod' (défaut) ou 'dev'
+SEED_DB="false" # 'true' si --seed est passé
+CMD="up"        # commande principale (up, logs, etc.)
+CMD_ARGS=()     # arguments pour la commande
 
 # ══════════════════════════════════════════════════════════════════
 #  Bannière
@@ -35,6 +39,44 @@ print_banner() {
   echo " ╚██████╔╝██║ ╚═╝ ██║██║  ██║╚██████╔╝    ██║     ██║  ██║╚██████╔╝"
   echo "  ╚═════╝ ╚═╝     ╚═╝╚═╝  ╚═╝ ╚═════╝     ╚═╝     ╚═╝  ╚═╝ ╚═════╝ "
   echo -e "${NC}${CYAN}  Gestion de Maintenance Assistée par Ordinateur${NC}\n"
+}
+
+# ══════════════════════════════════════════════════════════════════
+#  Analyse des arguments
+# ══════════════════════════════════════════════════════════════════
+parse_args() {
+  # Handle global flags first
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --dev)
+        PROFILE="dev"
+        shift
+        ;;
+      --prod)
+        PROFILE="prod"
+        shift
+        ;;
+      --seed|-s)
+        SEED_DB="true"
+        shift
+        ;;
+      -*)
+        # Not one of our flags, break and let the rest be the command
+        break
+        ;;
+      *)
+        # Not a flag, break and let the rest be the command
+        break
+        ;;
+    esac
+  done
+
+  # The rest are the command and its arguments
+  if [ "$#" -gt 0 ]; then
+    CMD="$1"
+    shift
+    CMD_ARGS=("$@")
+  fi
 }
 
 # ══════════════════════════════════════════════════════════════════
@@ -195,7 +237,7 @@ start_docker_daemon() {
 #  Vérification et configuration complète de Docker
 # ══════════════════════════════════════════════════════════════════
 setup_docker() {
-  log_step "Vérification de Docker"
+  log_step "Vérification de Docker (mode: ${BOLD}${PROFILE}${NC})"
 
   # ── 1. Docker Engine installé ? ──────────────────────────────
   local docker_ver
@@ -255,18 +297,21 @@ setup_docker() {
   # ── 4. Docker Compose ────────────────────────────────────────
   local dc_prefix="${SUDO:+$SUDO }"
   if ${dc_prefix}docker compose version &>/dev/null 2>&1; then
-    DC="${dc_prefix}docker compose"
+    DC="${dc_prefix}docker compose --profile ${PROFILE}"
     log_info "Docker Compose v2 (plugin)"
   elif has_cmd docker-compose; then
+    if [ "${PROFILE}" = "dev" ]; then
+      log_error "Le mode --dev requiert Docker Compose v2 (plugin). Mettez à jour Docker."
+      exit 1
+    fi
     DC="docker-compose"
     log_info "Docker Compose v1 (standalone)"
   else
     log_warn "Docker Compose non trouvé — installation..."
     $SUDO apt-get install -y -qq docker-compose-plugin 2>/dev/null \
-      || $SUDO apt-get install -y -qq docker-compose 2>/dev/null \
-      || { log_error "Impossible d'installer Docker Compose. Installez-le manuellement."; exit 1; }
-    DC="${dc_prefix}docker compose"
-    log_info "Docker Compose installé"
+      || { log_error "Impossible d'installer Docker Compose v2. Installez-le manuellement."; exit 1; }
+    DC="${dc_prefix}docker compose --profile ${PROFILE}"
+    log_info "Docker Compose v2 (plugin) installé"
   fi
 }
 
@@ -315,6 +360,13 @@ setup_env() {
     log_info "Fichier .env existant conservé"
   fi
 
+  # Configurer SEED_DB dans .env si demandé
+  if [ "$SEED_DB" = "true" ]; then
+    sed_inplace 's/^SEED_DB=.*/SEED_DB=true/' .env
+    set -a; source .env 2>/dev/null || true; set +a
+    log_info "Mode seed activé — données de démonstration incluses"
+  fi
+
   # Charger les variables d'env
   set -a
   # shellcheck disable=SC1091
@@ -359,12 +411,19 @@ check_prerequisites() {
 #  Attendre que l'application soit prête
 # ══════════════════════════════════════════════════════════════════
 wait_ready() {
-  local port="${APP_PORT:-80}"
+  local url=""
+  if [ "$PROFILE" = "dev" ]; then
+    url="http://localhost:5173/api/health"
+  else
+    local port="${APP_PORT:-80}"
+    url="http://localhost:${port}/api/health"
+  fi
+  
   local max=40
   local i=0
-  echo -n "  Attente du démarrage de l'application"
+  echo -n "  Attente du démarrage de l'application ($url)"
   while [ $i -lt $max ]; do
-    if curl -sf "http://localhost:${port}/api/health" &>/dev/null; then
+    if curl -sf "$url" &>/dev/null; then
       echo ""
       return 0
     fi
@@ -374,7 +433,7 @@ wait_ready() {
   done
   echo ""
   log_warn "L'application tarde à répondre (${max} tentatives)."
-  log_warn "Vérifiez les logs avec :  ./run.sh logs"
+  log_warn "Vérifiez les logs avec :  ./run.sh ${PROFILE_FLAG} logs"
 }
 
 # ══════════════════════════════════════════════════════════════════
@@ -386,7 +445,6 @@ print_urls() {
   source .env 2>/dev/null || true
   set +a
 
-  local port="${APP_PORT:-80}"
   local minio_console="${MINIO_CONSOLE_PORT:-9001}"
 
   echo ""
@@ -394,8 +452,16 @@ print_urls() {
   echo -e "${GREEN}${BOLD}║        GMAO Pro — Démarrage réussi !         ║${NC}"
   echo -e "${GREEN}${BOLD}╚══════════════════════════════════════════════╝${NC}"
   echo ""
-  echo -e "  ${BOLD}Application  :${NC}  http://localhost:${port}"
-  echo -e "  ${BOLD}API Health   :${NC}  http://localhost:${port}/api/health"
+  if [ "$PROFILE" = "dev" ]; then
+    echo -e "  ${BOLD}Mode         :${NC}  ${YELLOW}Développement (avec hot-reload)${NC}"
+    echo -e "  ${BOLD}Application  :${NC}  http://localhost:5173"
+    echo -e "  ${BOLD}API Health   :${NC}  http://localhost:5173/api/health"
+  else
+    local port="${APP_PORT:-80}"
+    echo -e "  ${BOLD}Mode         :${NC}  ${CYAN}Production${NC}"
+    echo -e "  ${BOLD}Application  :${NC}  http://localhost:${port}"
+    echo -e "  ${BOLD}API Health   :${NC}  http://localhost:${port}/api/health"
+  fi
   echo -e "  ${BOLD}Console MinIO:${NC}  http://localhost:${minio_console}"
   echo ""
   if [ "${SEED_DB:-false}" = "true" ]; then
@@ -405,13 +471,17 @@ print_urls() {
     echo "    tech1@gmao.fr   / Tech1234!    (Technicien)"
     echo ""
   fi
+
+  local profile_flag=""
+  [ "$PROFILE" = "dev" ] && profile_flag="--dev "
+  
   echo -e "${CYAN}  Commandes utiles :${NC}"
-  echo "    ./run.sh logs [service]  — logs en temps réel"
-  echo "    ./run.sh stop            — arrêter les services"
-  echo "    ./run.sh restart         — redémarrer les services"
-  echo "    ./run.sh status          — état des conteneurs"
-  echo "    ./run.sh seed            — injecter données de démo"
-  echo "    ./run.sh reset           — ⚠  tout réinitialiser"
+  echo "    ./run.sh ${profile_flag}logs [service]  — logs en temps réel"
+  echo "    ./run.sh ${profile_flag}stop            — arrêter les services"
+  echo "    ./run.sh ${profile_flag}restart         — redémarrer les services"
+  echo "    ./run.sh ${profile_flag}status          — état des conteneurs"
+  echo "    ./run.sh ${profile_flag}seed            — injecter données de démo"
+  echo "    ./run.sh ${profile_flag}reset           — ⚠  tout réinitialiser"
   echo "    ./run.sh help            — toutes les commandes"
   echo ""
 }
@@ -420,27 +490,20 @@ print_urls() {
 #  Point d'entrée principal
 # ══════════════════════════════════════════════════════════════════
 
-CMD="${1:-up}"
-
-# Toujours rendre le script exécutable (au cas où livré sans +x)
+# Toujours rendre le script exécutable
 [ ! -x "${BASH_SOURCE[0]}" ] && chmod +x "${BASH_SOURCE[0]}" 2>/dev/null || true
+
+parse_args "$@"
 
 case "$CMD" in
 
   # ─── Démarrer (défaut) ─────────────────────────────────────────
-  up|start|"")
+  up|start)
     print_banner
-    acquire_sudo       # demande le mot de passe une seule fois si nécessaire
+    acquire_sudo
     check_prerequisites
-    setup_docker       # vérifie / installe Docker
-    setup_env          # crée / vérifie .env
-
-    # Option --seed ou -s
-    if [[ "${2:-}" == "--seed" || "${2:-}" == "-s" ]]; then
-      sed_inplace 's/^SEED_DB=.*/SEED_DB=true/' .env
-      set -a; source .env 2>/dev/null || true; set +a
-      log_info "Mode seed activé — données de démonstration incluses"
-    fi
+    setup_docker
+    setup_env
 
     log_step "Construction des images Docker"
     if ! $DC build --parallel; then
@@ -454,7 +517,7 @@ case "$CMD" in
     fi
 
     log_step "Démarrage de tous les services"
-    if ! $DC up -d; then
+    if ! $DC up -d "${CMD_ARGS[@]}"; then
       log_error "Échec du démarrage des services."
       echo "  Consultez les logs : ./run.sh logs"
       exit 1
@@ -478,7 +541,7 @@ case "$CMD" in
     acquire_sudo
     setup_docker
     log_step "Redémarrage des services"
-    $DC restart
+    $DC restart "${CMD_ARGS[@]}"
     log_info "Services redémarrés."
     ;;
 
@@ -512,7 +575,7 @@ case "$CMD" in
   logs)
     acquire_sudo
     setup_docker
-    $DC logs -f --tail=150 ${2:-}
+    $DC logs -f --tail=150 "${CMD_ARGS[@]}"
     ;;
 
   # ─── État ──────────────────────────────────────────────────────
@@ -520,7 +583,7 @@ case "$CMD" in
     acquire_sudo
     setup_docker
     log_step "État des services"
-    $DC ps
+    $DC ps "${CMD_ARGS[@]}"
     ;;
 
   # ─── Seed ──────────────────────────────────────────────────────
@@ -528,7 +591,13 @@ case "$CMD" in
     acquire_sudo
     setup_docker
     log_step "Injection des données de démonstration"
-    $DC exec backend sh -c "rm -f /var/lib/gmao/.seed_done && cd /app/backend && node prisma/seed.js" \
+    # Le service backend doit tourner
+    if ! ($DC ps | grep -q 'gmao_backend.*Up'); then
+      log_warn "Le service backend n'est pas démarré. Tentative de démarrage..."
+      $DC up -d backend
+      sleep 5
+    fi
+    $DC exec backend sh -c "cd /app/backend && sh prisma/seed.sh" \
       && log_info "Seed terminé avec succès." \
       || { log_error "Erreur lors du seed. Vérifiez : ./run.sh logs backend"; exit 1; }
     ;;
@@ -552,7 +621,7 @@ case "$CMD" in
   shell)
     acquire_sudo
     setup_docker
-    local svc="${2:-backend}"
+    local svc="${CMD_ARGS[0]:-backend}"
     log_info "Ouverture d'un shell dans le conteneur '${svc}'..."
     $DC exec "$svc" sh
     ;;
@@ -560,26 +629,33 @@ case "$CMD" in
   # ─── Aide ──────────────────────────────────────────────────────
   help|-h|--help)
     print_banner
-    echo -e "${BOLD}Usage :${NC}  ./run.sh [commande] [option]"
+    echo -e "${BOLD}Usage :${NC}  ./run.sh [options] [commande]"
     echo ""
-    echo -e "${BOLD}Commandes :${NC}"
-    echo "  (aucune) / up [--seed]   Installer, configurer et démarrer"
+    echo -e "${BOLD}Options générales :${NC}"
+    echo "  --dev                    Mode développement (hot-reload, Vite)"
+    echo "  --prod                   Mode production (Nginx) (défaut)"
+    echo "  --seed, -s               Injecter les données de démo au premier 'up'"
+    echo ""
+    echo -e "${BOLD}Commandes principales :${NC}"
+    echo "  up                       Installer, configurer et démarrer (défaut)"
     echo "  stop                     Arrêter les services (données conservées)"
     echo "  restart                  Redémarrer les services"
     echo "  down                     Supprimer les conteneurs (données conservées)"
     echo "  reset                    ⚠  Tout supprimer y compris les données"
-    echo "  logs [service]           Logs temps réel (backend|nginx|postgres|minio)"
+    echo ""
+    echo -e "${BOLD}Commandes de débogage et maintenance :${NC}"
+    echo "  logs [service]           Logs temps réel (ex: backend, frontend, postgres)"
     echo "  status                   État de tous les conteneurs"
     echo "  seed                     Injecter les données de démonstration"
     echo "  update                   git pull + rebuild + restart"
     echo "  shell [service]          Shell dans un conteneur (défaut : backend)"
     echo ""
     echo -e "${BOLD}Exemples :${NC}"
-    echo "  ./run.sh              # Premier démarrage (installe Docker si besoin)"
-    echo "  ./run.sh --seed       # Avec données de démo"
-    echo "  ./run.sh up --seed    # Identique"
-    echo "  ./run.sh logs backend # Logs du backend en temps réel"
-    echo "  ./run.sh shell nginx  # Shell dans le conteneur nginx"
+    echo "  ./run.sh --dev              # Démarrer en mode DÉVELOPPEMENT"
+    echo "  ./run.sh                    # Démarrer en mode PRODUCTION (défaut)"
+    echo "  ./run.sh --dev --seed       # Démarrer en dev avec les données de démo"
+    echo "  ./run.sh --prod logs backend # Logs du backend en mode production"
+    echo "  ./run.sh --dev shell frontend # Shell dans le conteneur frontend (dev)"
     echo ""
     ;;
 

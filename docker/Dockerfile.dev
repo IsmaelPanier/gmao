@@ -1,0 +1,22 @@
+# GMAO Pro — Dockerfile pour l'environnement de développement
+#
+# Ce Dockerfile est optimisé pour la vitesse et le partage de code :
+# 1. Il installe TOUTES les dépendances du monorepo une seule fois.
+# 2. Il NE copie PAS le code source dans l'image.
+# 3. Le code source est monté via des volumes dans `docker-compose.override.yml`.
+# 4. Le rechargement à chaud est géré par `ts-node-dev` et `vite`.
+
+FROM node:20-alpine
+WORKDIR /app
+
+# Copie des manifestes de paquets de tout le workspace
+COPY package.json package-lock.json ./
+COPY backend/package.json ./backend/
+COPY frontend/package.json ./frontend/
+
+# Installation de toutes les dépendances (y compris devDependencies)
+# On utilise `npm install` qui est plus flexible pour le développement.
+RUN npm install --no-audit --no-fund
+
+# Le point d'entrée/commande sera défini dans docker-compose.override.yml
+# Le code source sera monté en volume dans /app

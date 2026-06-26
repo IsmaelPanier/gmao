@@ -1,0 +1,62 @@
+# GMAO Pro — Configuration de développement
+# Ce fichier surcharge le `docker-compose.yml` pour un environnement de
+# développement local avec rechargement à chaud (hot-reloading).
+#
+# Usage : `docker compose up` va automatiquement fusionner ce fichier.
+# Le script `run.sh` le prendra en charge sans modification.
+
+services:
+  # ─── Backend en mode développement ─────────────────────────────────
+  backend:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.dev # Utilise un Dockerfile simplifié
+    command: npm run dev --workspace=backend # Lance le serveur de dev
+    environment:
+      NODE_ENV: development
+      # Pour Vite, l'URL du frontend est le port exposé du conteneur Vite
+      FRONTEND_URL: http://localhost:5173
+    volumes:
+      - ./backend:/app/backend # Monte le code source local
+      - ./frontend:/app/frontend # Contexte pour le workspace
+      - node_modules:/app/node_modules # Partage les dépendances
+    # Le port n'est pas exposé car le proxy de Vite le gère
+    profiles:
+      - dev
+
+  # ─── Frontend en mode développement (Vite) ─────────────────────────
+  frontend:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.dev # Réutilise le même Dockerfile
+    command: npm run dev --workspace=frontend -- --host # --host pour exposer
+    environment:
+      NODE_ENV: development
+    volumes:
+      - ./backend:/app/backend # Contexte pour le workspace
+      - ./frontend:/app/frontend # Monte le code source local
+      - node_modules:/app/node_modules # Partage les dépendances
+    ports:
+      - "5173:5173" # Expose le port de Vite
+    depends_on:
+      - backend
+    profiles:
+      - dev
+  
+  # ─── Nginx (non utilisé en dev) ────────────────────────────────────
+  # Le service Nginx du fichier de base est remplacé par le serveur de dev Vite.
+  # On le désactive en ne le listant pas dans le profil "dev".
+  nginx:
+    profiles:
+      - prod # Uniquement pour le profil de production
+
+  # Les services de données sont conservés sans changement
+  postgres: {}
+  minio: {}
+  minio-init: {}
+
+volumes:
+  node_modules: # Volume pour partager les node_modules entre les services
+
+networks:
+  gmao_net: {}

@@ -10,11 +10,18 @@ export default defineConfig({
     },
   },
   server: {
-    host: true,
+    host: true, // Écoute sur toutes les interfaces réseau (nécessaire pour Docker)
     port: 5173,
     proxy: {
-      "/api": {
-        target: "http://localhost:4000",
+      // Redirige les requêtes API vers le service backend
+      '/api': {
+        target: 'http://backend:4000',
+        changeOrigin: true,
+      },
+      // Redirige les requêtes WebSocket (Socket.io) vers le service backend
+      '/socket.io': {
+        target: 'http://backend:4000',
+        ws: true, // Active le proxy pour les WebSockets
         changeOrigin: true,
       },
     },

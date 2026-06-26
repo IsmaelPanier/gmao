@@ -90,6 +90,8 @@ services:
       - seed_flag:/var/lib/gmao
     networks:
       - gmao_net
+    profiles:
+      - prod
 
   # ─── Frontend React servi par Nginx (+ reverse proxy API) ─────────
   nginx:
@@ -104,6 +106,8 @@ services:
       - "${APP_PORT:-80}:80"
     networks:
       - gmao_net
+    profiles:
+      - prod
 
 volumes:
   postgres_data:
