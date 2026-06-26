@@ -35,6 +35,8 @@ export const listInterventionsSchema = z.object({
   technicianId: z.string().optional(),
   dateFrom: z.string().optional(),
   dateTo: z.string().optional(),
+  sortBy: z.enum(["scheduledDate", "priority", "status", "createdAt", "updatedAt"]).default("scheduledDate"),
+  sortOrder: z.enum(["asc", "desc"]).default("asc"),
   page: z.coerce.number().min(1).default(1),
   limit: z.coerce.number().min(1).max(100).default(20),
 });

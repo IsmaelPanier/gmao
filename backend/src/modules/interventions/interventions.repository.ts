@@ -14,7 +14,7 @@ const INCLUDE_FULL = {
 
 export const InterventionsRepository = {
   async findAll(query: ListInterventionsQuery, technicianId?: string) {
-    const { page, limit, q, status, priority, clientId, dateFrom, dateTo } = query;
+    const { page, limit, q, status, priority, clientId, dateFrom, dateTo, sortBy, sortOrder } = query;
     const skip = (page - 1) * limit;
 
     const where: Prisma.InterventionWhereInput = {
@@ -23,6 +23,10 @@ export const InterventionsRepository = {
           { number: { contains: q, mode: "insensitive" } },
           { type: { contains: q, mode: "insensitive" } },
           { address: { contains: q, mode: "insensitive" } },
+          { client: { OR: [
+            { firstName: { contains: q, mode: "insensitive" } },
+            { lastName: { contains: q, mode: "insensitive" } },
+          ]}},
         ],
       }),
       ...(status === "active" 
@@ -48,19 +52,40 @@ export const InterventionsRepository = {
         : {}),
     };
 
+    // Build orderBy — Prisma needs specific field names
+    const orderBy: Prisma.InterventionOrderByWithRelationInput[] = (() => {
+      const dir = sortOrder ?? "asc";
+      switch (sortBy) {
+        case "priority": {
+          // Map priority enum to a sortable order via raw sort on enum index
+          return [{ priority: dir }, { scheduledDate: "asc" as const }];
+        }
+        case "status":
+          return [{ status: dir }, { scheduledDate: "asc" as const }];
+        case "createdAt":
+          return [{ createdAt: dir }];
+        case "updatedAt":
+          return [{ updatedAt: dir }];
+        case "scheduledDate":
+        default:
+          return [{ scheduledDate: dir }, { scheduledTime: dir }];
+      }
+    })();
+
     const [data, total] = await Promise.all([
       prisma.intervention.findMany({
         where,
         include: INCLUDE_FULL,
         skip,
         take: limit,
-        orderBy: [{ scheduledDate: "asc" }, { scheduledTime: "asc" }],
+        orderBy,
       }),
       prisma.intervention.count({ where }),
     ]);
 
     return { data, total, page, limit, totalPages: Math.ceil(total / limit) };
   },
+
 
   async findById(id: string) {
     return prisma.intervention.findUnique({ where: { id }, include: INCLUDE_FULL });
