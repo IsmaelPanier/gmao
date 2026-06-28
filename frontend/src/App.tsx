@@ -1,11 +1,18 @@
 import React from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { AuthProvider } from "@/features/auth/AuthContext";
+import { AuthProvider, useAuth } from "@/features/auth/AuthContext";
 import { NotificationProvider } from "@/features/notifications/NotificationContext";
 import { Toaster } from "sonner";
 import ProtectedRoute from "@/components/shared/ProtectedRoute";
 
+function HomeRoute() {
+  const { isAuthenticated, isLoading } = useAuth();
+  if (isLoading) return null;
+  return isAuthenticated ? <Navigate to="/dashboard" replace /> : <LandingPage />;
+}
+
+import LandingPage from "@/features/landing/LandingPage";
 import LoginPage from "@/features/auth/LoginPage";
 import RegisterPage from "@/features/auth/RegisterPage";
 import SetPasswordPage from "@/features/auth/SetPasswordPage";
@@ -34,11 +41,14 @@ export default function App() {
         <AuthProvider>
           <NotificationProvider>
             <Routes>
+              {/* Public */}
+              <Route path="/" element={<HomeRoute />} />
               <Route path="/login" element={<LoginPage />} />
               <Route path="/register" element={<RegisterPage />} />
               <Route path="/activate/:token" element={<SetPasswordPage />} />
-              
-              <Route path="/" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
+
+              {/* Protected */}
+              <Route path="/dashboard" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
               <Route path="/interventions" element={<ProtectedRoute><InterventionsPage /></ProtectedRoute>} />
               <Route path="/interventions/:id" element={<ProtectedRoute><InterventionDetailPage /></ProtectedRoute>} />
               <Route path="/clients" element={<ProtectedRoute roles={["admin", "manager"]}><ClientsPage /></ProtectedRoute>} />
@@ -46,7 +56,7 @@ export default function App() {
               <Route path="/users" element={<ProtectedRoute roles={["admin", "manager"]}><UsersPage /></ProtectedRoute>} />
               <Route path="/planning" element={<ProtectedRoute><AgendaPage /></ProtectedRoute>} />
               <Route path="/audit" element={<ProtectedRoute roles={["admin"]}><AuditPage /></ProtectedRoute>} />
-              
+
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
             <Toaster position="top-right" richColors />

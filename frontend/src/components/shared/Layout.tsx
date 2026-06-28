@@ -25,7 +25,7 @@ interface NavItem {
 }
 
 const NAV_ITEMS: NavItem[] = [
-  { to: "/", label: "Tableau de bord", icon: LayoutDashboard, roles: ["admin", "manager"], end: true },
+  { to: "/dashboard", label: "Tableau de bord", icon: LayoutDashboard, roles: ["admin", "manager"], end: true },
   { to: "/interventions", label: "Interventions", icon: ClipboardList, roles: ["admin", "manager"] },
   { to: "/mes-interventions", label: "Mes interventions", icon: Briefcase, roles: ["technician"] },
   { to: "/planning", label: "Planning", icon: Calendar, roles: ["admin", "manager", "technician"] },
