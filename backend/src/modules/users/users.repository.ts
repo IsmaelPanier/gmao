@@ -9,6 +9,7 @@ const SELECT_USER = {
   role: true,
   phone: true,
   isActive: true,
+  emailVerified: true,
   createdAt: true,
   updatedAt: true,
 };

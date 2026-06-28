@@ -3,7 +3,6 @@ import { z } from "zod";
 export const createUserSchema = z.object({
   name: z.string().min(2, "Nom requis"),
   email: z.string().email("Email invalide"),
-  password: z.string().min(6, "Mot de passe trop court"),
   role: z.enum(["admin", "manager", "technician"]),
   phone: z.string().regex(/^(?:(?:\+|00)33|0)\s*[1-9](?:[\s.-]*\d{2}){4}$/, "Numéro de téléphone français invalide").optional(),
 });
@@ -26,3 +25,6 @@ export const listUsersSchema = z.object({
 export type CreateUserDto = z.infer<typeof createUserSchema>;
 export type UpdateUserDto = z.infer<typeof updateUserSchema>;
 export type ListUsersQuery = z.infer<typeof listUsersSchema>;
+
+// Exposed for internal use only (not a request DTO)
+export type CreateUserInternal = CreateUserDto & { password: string; isActive: boolean; emailVerified: boolean };

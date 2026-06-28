@@ -13,6 +13,7 @@ import dashboardRoutes from "./modules/dashboard/dashboard.routes";
 import filesRoutes from "./modules/files/files.routes";
 import auditRoutes from "./modules/audit/audit.routes";
 import notificationsRoutes from "./modules/notifications/notifications.routes";
+import { setupSwagger } from "./config/swagger";
 
 export function createApp() {
   const app = express();
@@ -59,6 +60,9 @@ export function createApp() {
   app.use("/api/files", filesRoutes);
   app.use("/api/audit", auditRoutes);
   app.use("/api/notifications", notificationsRoutes);
+
+  // ─── Swagger ───────────────────────────────────
+  setupSwagger(app);
 
   // ─── 404 ───────────────────────────────────────
   app.use((_req, res) => {

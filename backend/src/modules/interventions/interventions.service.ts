@@ -4,10 +4,27 @@ import { CreateInterventionDto, ListInterventionsQuery, UpdateInterventionDto } 
 import { JwtPayload } from "../../shared/types";
 import { InterventionStatus } from "@prisma/client";
 import { NotificationsService } from "../notifications/notifications.service";
+import { getIO } from "../notifications/socket";
 import { minioClient, BUCKET_NAME } from "../../config/minio";
 import prisma from "../../config/database";
 import crypto from "crypto";
 import path from "path";
+
+function emitInterventionUpdate(intervention: any) {
+  try {
+    const io = getIO();
+    // Broadcast to all managers/admins
+    io.to("role:manager").to("role:admin").emit("intervention:updated", intervention);
+    // Broadcast to assigned technicians
+    if (intervention.technicians) {
+      for (const t of intervention.technicians) {
+        io.to(`user:${t.userId}`).emit("intervention:updated", intervention);
+      }
+    }
+  } catch {
+    // Socket not initialized, ignore
+  }
+}
 
 // Valid status transitions
 const STATUS_TRANSITIONS: Record<InterventionStatus, InterventionStatus[]> = {
@@ -56,6 +73,7 @@ export const InterventionsService = {
       }
     }
     
+    emitInterventionUpdate(intervention);
     return intervention;
   },
 
@@ -123,6 +141,7 @@ export const InterventionsService = {
       }
     }
 
+    emitInterventionUpdate(updated);
     return updated;
   },
 
@@ -223,5 +242,31 @@ export const InterventionsService = {
     }
 
     return uploadedMedia;
+  },
+
+  async uploadSignature(id: string, file: Express.Multer.File, currentUser: JwtPayload) {
+    const intervention = await InterventionsService.findById(id, currentUser);
+
+    if (currentUser.role === "technician") {
+      const isAssigned = intervention.technicians.some((t) => t.userId === currentUser.sub);
+      if (!isAssigned) throw AppError.forbidden("Vous n'êtes pas assigné à cette intervention.");
+    }
+
+    const ext = path.extname(file.originalname) || ".png";
+    const uniqueName = `${id}/signature-${Date.now()}${ext}`;
+
+    await minioClient.putObject(BUCKET_NAME, uniqueName, file.buffer, file.size, { "Content-Type": file.mimetype });
+
+    const url = `http://localhost:9000/${BUCKET_NAME}/${uniqueName}`;
+
+    return prisma.interventionMedia.create({
+      data: {
+        interventionId: id,
+        type: "SIGNATURE",
+        url,
+        filename: file.originalname,
+        uploadedById: currentUser.sub,
+      },
+    });
   },
 };

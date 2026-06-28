@@ -16,6 +16,8 @@ import { ArrowLeft, MapPin, Clock, User, Calendar, Edit2, Trash2, Users } from "
 import type { InterventionStatus } from "@/types";
 import { useAuth } from "@/features/auth/AuthContext";
 import { InterventionPhotos } from "./components/InterventionPhotos";
+import { CloseInterventionModal } from "./components/CloseInterventionModal";
+import { DelayedNotificationButton } from "@/features/notifications/DelayedNotificationButton";
 
 // Status transition map (mirrors backend)
 const ALLOWED_TRANSITIONS: Record<InterventionStatus, InterventionStatus[]> = {
@@ -36,6 +38,7 @@ export default function InterventionDetailPage() {
 
   const [notes, setNotes] = useState("");
   const [editNotes, setEditNotes] = useState(false);
+  const [closeModalOpen, setCloseModalOpen] = useState(false);
 
   const { data: intervention, isLoading } = useQuery({
     queryKey: ["intervention", id],
@@ -168,11 +171,10 @@ export default function InterventionDetailPage() {
                      return <Button onClick={() => InterventionsService.timeLog(id!, "START").then(() => { toast.success("Intervention démarrée"); qc.invalidateQueries({ queryKey: ["intervention", id] }); })}>▶ Démarrer l'intervention</Button>;
                   }
                   if (intervention.status === "in_progress") {
-                     // In a real app we'd query the latest log type, here we just allow pausing or finishing
                      return (
                        <>
                          <Button variant="secondary" onClick={() => InterventionsService.timeLog(id!, "PAUSE").then(() => { toast.success("Intervention en pause"); qc.invalidateQueries({ queryKey: ["intervention", id] }); })}>⏸ Pause</Button>
-                         <Button onClick={() => InterventionsService.timeLog(id!, "END").then(() => { toast.success("Intervention terminée"); qc.invalidateQueries({ queryKey: ["intervention", id] }); qc.invalidateQueries({ queryKey: ["dashboard-stats"] }); })}>⏹ Terminer</Button>
+                         <Button className="bg-green-600 hover:bg-green-700" onClick={() => setCloseModalOpen(true)}>✓ Clôturer</Button>
                        </>
                      );
                   }
@@ -249,6 +251,16 @@ export default function InterventionDetailPage() {
             </div>
           )}
 
+          {isManager && assignedTechIds.length > 0 && (
+            <div className="mt-3">
+              <DelayedNotificationButton
+                technicianIds={assignedTechIds}
+                interventionNumber={intervention.number}
+                interventionId={intervention.id}
+              />
+            </div>
+          )}
+
           {isManager && techs && (
             <div className="mt-4 pt-3 border-t border-border">
               <Label className="text-xs font-bold uppercase tracking-wider mb-2 block">Modifier les techniciens</Label>
@@ -321,6 +333,13 @@ export default function InterventionDetailPage() {
         <span>Créée le {formatDate(intervention.createdAt, "dd/MM/yyyy HH:mm")}</span>
         <span>Modifiée le {formatDate(intervention.updatedAt, "dd/MM/yyyy HH:mm")}</span>
       </div>
+
+      <CloseInterventionModal
+        interventionId={id!}
+        open={closeModalOpen}
+        onOpenChange={setCloseModalOpen}
+        onSuccess={() => qc.invalidateQueries({ queryKey: ["intervention", id] })}
+      />
     </div>
   );
 }

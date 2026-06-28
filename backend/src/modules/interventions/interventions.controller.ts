@@ -53,4 +53,12 @@ export const InterventionsController = {
       res.status(201).json(success(await InterventionsService.uploadMedia(req.params.id as string, files, req.user!), "Médias ajoutés avec succès"));
     } catch (err) { next(err); }
   },
+
+  async uploadSignature(req: Request, res: Response, next: NextFunction) {
+    try {
+      const file = req.file as Express.Multer.File | undefined;
+      if (!file) return res.status(400).json({ success: false, error: { message: "No signature file uploaded" } });
+      res.status(201).json(success(await InterventionsService.uploadSignature(req.params.id as string, file, req.user!), "Signature enregistrée"));
+    } catch (err) { next(err); }
+  },
 };

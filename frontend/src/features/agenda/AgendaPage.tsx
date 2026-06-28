@@ -1,4 +1,4 @@
-import React, { useRef, useState } from "react";
+import React, { useRef, useEffect } from "react";
 import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import timeGridPlugin from "@fullcalendar/timegrid";
@@ -10,11 +10,25 @@ import { toast } from "sonner";
 import { Card } from "@/components/ui/card";
 import { Calendar as CalendarIcon } from "lucide-react";
 import { EventDropArg } from "@fullcalendar/core";
+import { io } from "socket.io-client";
 
 export default function AgendaPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const calendarRef = useRef<FullCalendar>(null);
+
+  // Écoute les mises à jour d'interventions en temps réel
+  useEffect(() => {
+    const token = localStorage.getItem("accessToken");
+    const backendUrl = import.meta.env.VITE_API_URL || "http://localhost:4000";
+    const socket = io(backendUrl, { auth: { token } });
+
+    socket.on("intervention:updated", () => {
+      queryClient.invalidateQueries({ queryKey: ["interventions"] });
+    });
+
+    return () => { socket.disconnect(); };
+  }, [queryClient]);
 
   const { data, isLoading } = useQuery({
     queryKey: ["interventions"],

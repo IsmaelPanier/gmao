@@ -48,6 +48,10 @@ export const AuthService = {
       throw AppError.unauthorized("Invalid credentials");
     }
 
+    if (!user.emailVerified) {
+      throw AppError.unauthorized("Votre compte n'est pas encore activé. Vérifiez votre email.");
+    }
+
     const passwordMatch = await bcrypt.compare(dto.password, user.password);
     if (!passwordMatch) {
       throw AppError.unauthorized("Invalid credentials");
@@ -159,5 +163,44 @@ export const AuthService = {
     const user = await prisma.user.findUnique({ where: { id: userId } });
     if (!user) throw AppError.notFound("User not found");
     return sanitizeUser(user);
+  },
+
+  async validateActivationToken(token: string) {
+    const record = await prisma.activationToken.findUnique({
+      where: { token },
+      include: { user: true },
+    });
+
+    if (!record || record.used || record.expiresAt < new Date()) {
+      throw AppError.badRequest("Ce lien d'activation est invalide ou expiré");
+    }
+
+    return { email: record.user.email, name: record.user.name };
+  },
+
+  async activateAccount(token: string, password: string) {
+    const record = await prisma.activationToken.findUnique({
+      where: { token },
+      include: { user: true },
+    });
+
+    if (!record || record.used || record.expiresAt < new Date()) {
+      throw AppError.badRequest("Ce lien d'activation est invalide ou expiré");
+    }
+
+    const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);
+
+    await prisma.$transaction([
+      prisma.user.update({
+        where: { id: record.userId },
+        data: { password: hashedPassword, isActive: true, emailVerified: true },
+      }),
+      prisma.activationToken.update({
+        where: { id: record.id },
+        data: { used: true },
+      }),
+    ]);
+
+    return { message: "Compte activé avec succès" };
   },
 };

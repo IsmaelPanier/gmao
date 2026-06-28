@@ -1,6 +1,6 @@
 import * as Minio from 'minio';
 import { env } from './env';
-import { logger } from '../shared/logger';
+import { logger } from './logger';
 
 export const minioClient = new Minio.Client({
   endPoint: env.MINIO_ENDPOINT || 'localhost',

@@ -11,7 +11,7 @@ COPY backend/package.json ./backend/
 COPY frontend/package.json ./frontend/
 
 # Installation de TOUTES les dépendances (dev inclus pour la compilation)
-RUN npm ci --no-audit --no-fund
+RUN npm install --no-audit --no-fund
 
 # Copie du code source backend
 COPY backend/ ./backend/

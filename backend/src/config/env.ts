@@ -22,6 +22,14 @@ const envSchema = z.object({
   MINIO_ACCESS_KEY: z.string().default("gmao_admin"),
   MINIO_SECRET_KEY: z.string().default("gmao_secret_minio"),
   MINIO_BUCKET_NAME: z.string().default("gmao-media"),
+
+  // SMTP / Email (all optional — falls back to console log in dev)
+  SMTP_HOST: z.string().optional(),
+  SMTP_PORT: z.coerce.number().default(587),
+  SMTP_SECURE: z.enum(["true", "false"]).transform((v) => v === "true").default("false"),
+  SMTP_USER: z.string().optional(),
+  SMTP_PASS: z.string().optional(),
+  SMTP_FROM: z.string().default("GMAO <noreply@gmao.local>"),
 });
 
 const parsed = envSchema.safeParse(process.env);

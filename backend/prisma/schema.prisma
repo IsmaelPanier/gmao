@@ -65,15 +65,16 @@ enum TimeLogType {
 // ─────────────────────────────────────────────
 
 model User {
-  id        String   @id @default(uuid())
-  email     String   @unique
-  password  String
-  name      String
-  role      Role     @default(technician)
-  phone     String?
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id            String   @id @default(uuid())
+  email         String   @unique
+  password      String
+  name          String
+  role          Role     @default(technician)
+  phone         String?
+  isActive      Boolean  @default(true)
+  emailVerified Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
   // Relations
   refreshTokens      RefreshToken[]
@@ -83,9 +84,24 @@ model User {
   auditLogs          AuditLog[]
   notifications      Notification[]
   uploadedMedia      InterventionMedia[]
+  activationTokens   ActivationToken[]
 
   @@index([email])
   @@map("users")
+}
+
+model ActivationToken {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  userId    String
+  expiresAt DateTime
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([token])
+  @@map("activation_tokens")
 }
 
 model RefreshToken {

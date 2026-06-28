@@ -48,4 +48,22 @@ export const AuthController = {
       next(err);
     }
   },
+
+  async validateActivationToken(req: Request, res: Response, next: NextFunction) {
+    try {
+      const result = await AuthService.validateActivationToken(req.params.token);
+      res.json(success(result));
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  async activateAccount(req: Request, res: Response, next: NextFunction) {
+    try {
+      const result = await AuthService.activateAccount(req.params.token, req.body.password);
+      res.json(success(result, "Compte activé avec succès"));
+    } catch (err) {
+      next(err);
+    }
+  },
 };

@@ -47,4 +47,13 @@ export const UsersController = {
       next(err);
     }
   },
+
+  async resendInvitation(req: Request, res: Response, next: NextFunction) {
+    try {
+      const result = await UsersService.resendInvitation(req.params.id as string);
+      res.json(success(result, "Invitation renvoyée"));
+    } catch (err) {
+      next(err);
+    }
+  },
 };

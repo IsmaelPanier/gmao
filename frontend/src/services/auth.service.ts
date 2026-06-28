@@ -34,6 +34,15 @@ const AuthService = {
     const { data } = await api.get<{ data: User }>("/auth/me");
     return data.data;
   },
+
+  async validateActivationToken(token: string): Promise<{ email: string; name: string }> {
+    const { data } = await api.get<{ data: { email: string; name: string } }>(`/auth/activate/${token}`);
+    return data.data;
+  },
+
+  async activateAccount(token: string, password: string): Promise<void> {
+    await api.post(`/auth/activate/${token}`, { password });
+  },
 };
 
 export default AuthService;

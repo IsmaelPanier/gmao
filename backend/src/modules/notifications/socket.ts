@@ -28,11 +28,14 @@ export const initSocket = (httpServer: HttpServer) => {
   });
 
   io.on("connection", (socket) => {
-    const userId = socket.data.user.sub;
-    logger.info(`User connected to socket: ${userId}`);
-    
-    // Join a room for the user to receive targeted notifications
+    const { sub: userId, role } = socket.data.user;
+    logger.info(`User connected to socket: ${userId} (${role})`);
+
+    // Room personnelle pour les notifications ciblées
     socket.join(`user:${userId}`);
+
+    // Room de rôle pour les broadcasts (ex: planning → tous les managers)
+    socket.join(`role:${role}`);
 
     socket.on("disconnect", () => {
       logger.info(`User disconnected from socket: ${userId}`);

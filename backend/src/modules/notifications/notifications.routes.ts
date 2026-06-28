@@ -7,6 +7,8 @@ router.use(authenticate);
 
 router.get("/", NotificationsController.getMyNotifications);
 router.post("/mark-all-read", NotificationsController.markAllAsRead);
+router.post("/schedule", NotificationsController.scheduleNotification);
+router.delete("/scheduled/:jobId", NotificationsController.cancelScheduledNotification);
 router.post("/:id/read", NotificationsController.markAsRead);
 
 export default router;

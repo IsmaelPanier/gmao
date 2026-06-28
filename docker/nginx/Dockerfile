@@ -3,12 +3,12 @@ FROM node:20-alpine AS frontend-builder
 WORKDIR /app
 
 # Copie des manifestes workspace
-COPY package.json package-lock.json ./
+COPY package.json ./
 COPY backend/package.json ./backend/
 COPY frontend/package.json ./frontend/
 
 # Installation des dépendances
-RUN npm ci --no-audit --no-fund
+RUN npm install --no-audit --no-fund
 
 # Copie du code source frontend
 COPY frontend/ ./frontend/

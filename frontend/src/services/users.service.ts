@@ -21,6 +21,11 @@ const UsersService = {
   async delete(id: string): Promise<void> {
     await api.delete(`/users/${id}`);
   },
+
+  async resendInvitation(id: string): Promise<{ message: string; activationUrl?: string }> {
+    const { data } = await api.post<{ data: { message: string; activationUrl?: string } }>(`/users/${id}/resend-invitation`);
+    return data.data;
+  },
 };
 
 export default UsersService;

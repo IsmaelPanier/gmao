@@ -57,6 +57,14 @@ const InterventionsService = {
       headers: { "Content-Type": "multipart/form-data" },
     });
   },
+
+  async uploadSignature(id: string, file: File): Promise<void> {
+    const formData = new FormData();
+    formData.append("signature", file);
+    await api.post(`/interventions/${id}/signature`, formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+  },
 };
 
 export default InterventionsService;

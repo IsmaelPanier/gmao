@@ -1,15 +1,19 @@
 import React, { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import UsersService from "@/services/users.service";
 import { Input } from "@/components/ui/input";
-import { Search, Mail, Phone, Shield } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Search, Mail, Phone, Shield, Send } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { CreateUserDialog } from "./CreateUserDialog";
 import { EditUserDialog } from "./EditUserDialog";
 import { useAuth } from "@/features/auth/AuthContext";
+import { toast } from "sonner";
+import { getApiError } from "@/services/api";
 
 export default function UsersPage() {
   const { user } = useAuth();
+  const qc = useQueryClient();
   const [q, setQ] = useState("");
   const { data, isLoading } = useQuery({
     queryKey: ["users", { q }],
@@ -18,6 +22,18 @@ export default function UsersPage() {
 
   const users = data?.data ?? [];
   const canManageUsers = ["admin", "manager"].includes(user?.role ?? "");
+
+  const resendMutation = useMutation({
+    mutationFn: (id: string) => UsersService.resendInvitation(id),
+    onSuccess: (result) => {
+      toast.success("Invitation renvoyée");
+      if (result.activationUrl) {
+        navigator.clipboard.writeText(result.activationUrl).catch(() => {});
+        toast.info("Lien d'activation copié dans le presse-papier (mode dev)");
+      }
+    },
+    onError: (err) => toast.error(getApiError(err)),
+  });
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -47,8 +63,25 @@ export default function UsersPage() {
                 </div>
               </div>
               <div className="flex flex-col items-end gap-2">
-                <Badge variant={u.isActive ? "default" : "destructive"}>{u.isActive ? "Actif" : "Inactif"}</Badge>
-                {canManageUsers && <EditUserDialog user={u} />}
+                {(u as any).emailVerified === false ? (
+                  <Badge variant="outline" className="border-amber-400 text-amber-600">En attente</Badge>
+                ) : (
+                  <Badge variant={u.isActive ? "default" : "destructive"}>{u.isActive ? "Actif" : "Inactif"}</Badge>
+                )}
+                <div className="flex gap-1">
+                  {canManageUsers && !(u as any).emailVerified && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-7 text-xs text-muted-foreground hover:text-foreground"
+                      disabled={resendMutation.isPending}
+                      onClick={() => resendMutation.mutate(u.id)}
+                    >
+                      <Send className="w-3 h-3 mr-1" /> Renvoyer
+                    </Button>
+                  )}
+                  {canManageUsers && <EditUserDialog user={u} />}
+                </div>
               </div>
             </div>
             <div className="space-y-1 mt-2 text-sm text-muted-foreground">

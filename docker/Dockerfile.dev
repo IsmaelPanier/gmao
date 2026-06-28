@@ -18,7 +18,6 @@ COPY backend/package.json ./backend/
 COPY frontend/package.json ./frontend/
 
 # Installation de toutes les dépendances (y compris devDependencies)
-# On utilise `npm install` qui est plus flexible pour le développement.
 RUN npm install --no-audit --no-fund
 
 # Copie du schema Prisma pour générer le client pendant le build
