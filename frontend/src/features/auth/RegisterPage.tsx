@@ -1,36 +1,44 @@
 import React, { useState } from "react";
-import { useNavigate, useLocation, Link } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "./AuthContext";
+import AuthService from "@/services/auth.service";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { getApiError } from "@/services/api";
-import { Wrench, ArrowRight, Shield, Zap, BarChart3 } from "lucide-react";
+import { Wrench, ArrowRight, Users, Settings, BarChart3 } from "lucide-react";
 import { toast } from "sonner";
 
-const features = [
-  { icon: Shield, title: "Sécurisé", desc: "Authentification JWT avec rotation des tokens" },
-  { icon: Zap, title: "Temps réel", desc: "Suivi des interventions en direct" },
-  { icon: BarChart3, title: "Analytics", desc: "Tableaux de bord et rapports avancés" },
+const benefits = [
+  { icon: Users, title: "Gestion d'équipe", desc: "Invitez vos techniciens et managers" },
+  { icon: Settings, title: "Suivi terrain", desc: "Interventions, pointage et médias en temps réel" },
+  { icon: BarChart3, title: "Reporting", desc: "Tableaux de bord et statistiques avancés" },
 ];
 
-export default function LoginPage() {
+export default function RegisterPage() {
   const { login } = useAuth();
   const navigate = useNavigate();
-  const location = useLocation();
-  const from = (location.state as any)?.from ?? "/";
 
+  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (password !== confirm) {
+      toast.error("Les mots de passe ne correspondent pas");
+      return;
+    }
     setLoading(true);
     try {
+      const result = await AuthService.register({ name, email, password });
+      localStorage.setItem("access_token", result.accessToken);
+      localStorage.setItem("refresh_token", result.refreshToken);
+      toast.success("Compte créé avec succès !");
       await login(email, password);
-      toast.success("Connexion réussie !");
-      navigate(from, { replace: true });
+      navigate("/", { replace: true });
     } catch (err) {
       toast.error(getApiError(err));
     } finally {
@@ -39,7 +47,7 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex" data-testid="login-page">
+    <div className="min-h-screen flex">
       {/* ─── Left panel ─────────────────── */}
       <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden bg-gmao-900">
         <div
@@ -65,16 +73,16 @@ export default function LoginPage() {
           <div className="space-y-8">
             <div>
               <h1 className="text-5xl font-bold tracking-tight leading-tight mb-4">
-                Gérez vos interventions.<br />
-                <span className="text-gmao-100/70">Simplement.</span>
+                Démarrez gratuitement.<br />
+                <span className="text-gmao-100/70">En 2 minutes.</span>
               </h1>
               <p className="text-white/60 text-base leading-relaxed max-w-sm">
-                Planification, suivi terrain et reporting en temps réel pour vos équipes de maintenance.
+                Créez votre espace GMAO et invitez votre équipe dès aujourd'hui.
               </p>
             </div>
 
             <div className="grid gap-4">
-              {features.map(({ icon: Icon, title, desc }) => (
+              {benefits.map(({ icon: Icon, title, desc }) => (
                 <div key={title} className="flex items-start gap-3 bg-white/5 rounded-xl p-4 border border-white/10">
                   <div className="w-8 h-8 bg-gmao-600/40 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5">
                     <Icon className="w-4 h-4 text-gmao-100" />
@@ -95,7 +103,6 @@ export default function LoginPage() {
       {/* ─── Right panel ────────────────── */}
       <div className="w-full lg:w-1/2 flex flex-col justify-center px-8 sm:px-12 lg:px-16 bg-background">
         <div className="max-w-sm w-full mx-auto">
-          {/* Mobile logo */}
           <div className="lg:hidden flex items-center gap-2 mb-10">
             <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
               <Wrench className="w-4 h-4 text-white" strokeWidth={2.5} />
@@ -104,13 +111,27 @@ export default function LoginPage() {
           </div>
 
           <div className="mb-8">
-            <h2 className="text-3xl font-bold tracking-tight mb-2">Bienvenue</h2>
+            <h2 className="text-3xl font-bold tracking-tight mb-2">Créer un compte</h2>
             <p className="text-muted-foreground text-sm">
-              Connectez-vous à votre espace de gestion
+              Votre compte sera administrateur de l'espace GMAO
             </p>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-5">
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="name">Nom complet</Label>
+              <Input
+                id="name"
+                type="text"
+                required
+                autoComplete="name"
+                placeholder="Jean Dupont"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className="h-11"
+              />
+            </div>
+
             <div className="space-y-1.5">
               <Label htmlFor="email">Adresse email</Label>
               <Input
@@ -131,57 +152,47 @@ export default function LoginPage() {
                 id="password"
                 type="password"
                 required
-                autoComplete="current-password"
-                placeholder="••••••••"
+                autoComplete="new-password"
+                placeholder="8 caractères min, 1 majuscule, 1 chiffre"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="h-11"
               />
             </div>
 
-            <Button type="submit" disabled={loading} className="w-full h-11 gap-2 group">
+            <div className="space-y-1.5">
+              <Label htmlFor="confirm">Confirmer le mot de passe</Label>
+              <Input
+                id="confirm"
+                type="password"
+                required
+                autoComplete="new-password"
+                placeholder="••••••••"
+                value={confirm}
+                onChange={(e) => setConfirm(e.target.value)}
+                className="h-11"
+              />
+            </div>
+
+            <Button type="submit" disabled={loading} className="w-full h-11 gap-2 group mt-2">
               {loading ? (
                 <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
               ) : (
                 <>
-                  Se connecter
+                  Créer mon compte
                   <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                 </>
               )}
             </Button>
           </form>
 
-          <div className="mt-6 text-center">
+          <div className="mt-8 pt-6 border-t border-border text-center">
             <p className="text-sm text-muted-foreground">
-              Pas encore de compte ?{" "}
-              <Link to="/register" className="text-primary font-medium hover:underline">
-                Créer un compte
+              Déjà un compte ?{" "}
+              <Link to="/login" className="text-primary font-medium hover:underline">
+                Se connecter
               </Link>
             </p>
-          </div>
-
-          {/* Demo accounts */}
-          <div className="mt-6 pt-6 border-t border-border">
-            <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground mb-3">
-              Comptes de démonstration
-            </div>
-            <div className="space-y-2">
-              {[
-                { email: "admin@gmao.fr", password: "Admin1234!", role: "Admin" },
-                { email: "manager@gmao.fr", password: "Manager1234!", role: "Manager" },
-                { email: "tech1@gmao.fr", password: "Tech1234!", role: "Technicien" },
-              ].map((acc) => (
-                <button
-                  key={acc.email}
-                  type="button"
-                  onClick={() => { setEmail(acc.email); setPassword(acc.password); }}
-                  className="w-full flex items-center justify-between bg-muted/50 hover:bg-muted rounded-lg px-3 py-2.5 text-xs transition-colors border border-transparent hover:border-border"
-                >
-                  <span className="font-mono text-foreground">{acc.email}</span>
-                  <span className="text-muted-foreground text-[10px] font-medium uppercase tracking-wide">{acc.role}</span>
-                </button>
-              ))}
-            </div>
           </div>
         </div>
       </div>

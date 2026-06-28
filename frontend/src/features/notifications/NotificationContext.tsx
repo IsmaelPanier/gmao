@@ -44,7 +44,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     if (user) {
       fetchNotifications();
       
-      const token = localStorage.getItem("accessToken");
+      const token = localStorage.getItem("access_token");
       const backendUrl = import.meta.env.VITE_API_URL || "http://localhost:4000";
       
       const newSocket = io(backendUrl, {

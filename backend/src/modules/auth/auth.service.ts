@@ -87,7 +87,7 @@ export const AuthService = {
     });
 
     if (existing) {
-      throw AppError.conflict("A user with this email already exists");
+      throw AppError.conflict("Un compte existe déjà avec cet email");
     }
 
     const hashedPassword = await bcrypt.hash(dto.password, SALT_ROUNDS);
@@ -97,12 +97,31 @@ export const AuthService = {
         email: dto.email.toLowerCase(),
         password: hashedPassword,
         name: dto.name,
-        role: dto.role as Role,
+        role: "admin" as Role,
         phone: dto.phone,
+        emailVerified: true,
+        isActive: true,
       },
     });
 
-    return sanitizeUser(user);
+    const { accessToken, refreshToken } = generateTokens({
+      sub: user.id,
+      email: user.email,
+      role: user.role,
+    });
+
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + 7);
+
+    await prisma.refreshToken.create({
+      data: { token: refreshToken, userId: user.id, expiresAt },
+    });
+
+    return {
+      user: sanitizeUser(user),
+      accessToken,
+      refreshToken,
+    };
   },
 
   async refresh(refreshToken: string) {

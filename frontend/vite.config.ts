@@ -1,3 +1,4 @@
+/// <reference types="vitest" />
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import path from "path";
@@ -10,6 +11,14 @@ const backendUrl = process.env.VITE_BACKEND_URL ?? "http://localhost:4000";
 export default defineConfig({
   plugins: [react()],
   resolve: {
+    alias: {
+      "@": path.resolve(__dirname, "./src"),
+    },
+  },
+  test: {
+    globals: true,
+    environment: "jsdom",
+    setupFiles: ["./src/__tests__/setup.ts"],
     alias: {
       "@": path.resolve(__dirname, "./src"),
     },

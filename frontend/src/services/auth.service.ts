@@ -2,7 +2,7 @@ import api from "./api";
 import type { User } from "@/types";
 
 export interface LoginPayload { email: string; password: string; }
-export interface RegisterPayload { email: string; password: string; name: string; role?: string; phone?: string; }
+export interface RegisterPayload { email: string; password: string; name: string; phone?: string; }
 
 export interface AuthResponse {
   user: User;
@@ -16,8 +16,8 @@ const AuthService = {
     return data.data;
   },
 
-  async register(payload: RegisterPayload): Promise<User> {
-    const { data } = await api.post<{ data: User }>("/auth/register", payload);
+  async register(payload: RegisterPayload): Promise<AuthResponse> {
+    const { data } = await api.post<{ data: AuthResponse }>("/auth/register", payload);
     return data.data;
   },
 

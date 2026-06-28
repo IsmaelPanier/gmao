@@ -122,13 +122,25 @@ export const InterventionsRepository = {
           });
         }
       }
+      let durationActual: number | undefined;
+      if (rest.status === "completed") {
+        const current = await tx.intervention.findUnique({
+          where: { id },
+          select: { startedAt: true },
+        });
+        if (current?.startedAt) {
+          durationActual = Math.round((Date.now() - current.startedAt.getTime()) / 60000);
+        }
+      }
+
       return tx.intervention.update({
         where: { id },
         data: {
           ...rest,
           scheduledDate: rest.scheduledDate ? new Date(rest.scheduledDate) : rest.scheduledDate === null ? null : undefined,
-          completedAt: rest.status === "completed" ? new Date() : rest.status === "in_progress" ? undefined : undefined,
+          completedAt: rest.status === "completed" ? new Date() : undefined,
           startedAt: rest.status === "in_progress" ? new Date() : undefined,
+          durationActual: durationActual,
           status: rest.status as InterventionStatus | undefined,
           priority: rest.priority as InterventionPriority | undefined,
         },

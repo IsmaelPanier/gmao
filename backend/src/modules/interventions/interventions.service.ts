@@ -6,6 +6,7 @@ import { InterventionStatus } from "@prisma/client";
 import { NotificationsService } from "../notifications/notifications.service";
 import { getIO } from "../notifications/socket";
 import { minioClient, BUCKET_NAME } from "../../config/minio";
+import { env } from "../../config/env";
 import prisma from "../../config/database";
 import crypto from "crypto";
 import path from "path";
@@ -221,11 +222,8 @@ export const InterventionsService = {
         { 'Content-Type': file.mimetype }
       );
 
-      // Public URL assuming MinIO is accessible at localhost:9000 (adjust if needed in production)
-      // Since it's dockerized, we can return the relative path or full URL.
-      // The frontend can construct the URL or we store the full MinIO URL.
-      // Using /gmao-media/ path for direct access if proxy is setup, or full URL
-      const url = `http://localhost:9000/${BUCKET_NAME}/${uniqueName}`;
+      const minioBase = env.MINIO_PUBLIC_URL ?? `http://${env.MINIO_ENDPOINT}:${env.MINIO_PORT}`;
+      const url = `${minioBase}/${BUCKET_NAME}/${uniqueName}`;
 
       // Save to database
       const media = await prisma.interventionMedia.create({
@@ -257,7 +255,8 @@ export const InterventionsService = {
 
     await minioClient.putObject(BUCKET_NAME, uniqueName, file.buffer, file.size, { "Content-Type": file.mimetype });
 
-    const url = `http://localhost:9000/${BUCKET_NAME}/${uniqueName}`;
+    const minioBase = env.MINIO_PUBLIC_URL ?? `http://${env.MINIO_ENDPOINT}:${env.MINIO_PORT}`;
+    const url = `${minioBase}/${BUCKET_NAME}/${uniqueName}`;
 
     return prisma.interventionMedia.create({
       data: {

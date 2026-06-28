@@ -7,6 +7,7 @@ import { Toaster } from "sonner";
 import ProtectedRoute from "@/components/shared/ProtectedRoute";
 
 import LoginPage from "@/features/auth/LoginPage";
+import RegisterPage from "@/features/auth/RegisterPage";
 import SetPasswordPage from "@/features/auth/SetPasswordPage";
 import DashboardPage from "@/features/dashboard/DashboardPage";
 import InterventionsPage from "@/features/interventions/InterventionsPage";
@@ -34,6 +35,7 @@ export default function App() {
           <NotificationProvider>
             <Routes>
               <Route path="/login" element={<LoginPage />} />
+              <Route path="/register" element={<RegisterPage />} />
               <Route path="/activate/:token" element={<SetPasswordPage />} />
               
               <Route path="/" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />

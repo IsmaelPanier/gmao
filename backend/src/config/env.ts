@@ -22,6 +22,7 @@ const envSchema = z.object({
   MINIO_ACCESS_KEY: z.string().default("gmao_admin"),
   MINIO_SECRET_KEY: z.string().default("gmao_secret_minio"),
   MINIO_BUCKET_NAME: z.string().default("gmao-media"),
+  MINIO_PUBLIC_URL: z.string().optional(),
 
   // SMTP / Email (all optional — falls back to console log in dev)
   SMTP_HOST: z.string().optional(),

@@ -6,14 +6,13 @@ export const loginSchema = z.object({
 });
 
 export const registerSchema = z.object({
-  email: z.string().email("Invalid email address"),
+  email: z.string().email("Email invalide"),
   password: z
     .string()
-    .min(8, "Password must be at least 8 characters")
-    .regex(/[A-Z]/, "Password must contain at least one uppercase letter")
-    .regex(/[0-9]/, "Password must contain at least one number"),
-  name: z.string().min(2, "Name must be at least 2 characters"),
-  role: z.enum(["admin", "manager", "technician"]).optional().default("technician"),
+    .min(8, "Le mot de passe doit contenir au moins 8 caractères")
+    .regex(/[A-Z]/, "Le mot de passe doit contenir au moins une majuscule")
+    .regex(/[0-9]/, "Le mot de passe doit contenir au moins un chiffre"),
+  name: z.string().min(2, "Le nom doit contenir au moins 2 caractères"),
   phone: z.string().optional(),
 });
 

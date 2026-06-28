@@ -19,7 +19,7 @@ export default function AgendaPage() {
 
   // Écoute les mises à jour d'interventions en temps réel
   useEffect(() => {
-    const token = localStorage.getItem("accessToken");
+    const token = localStorage.getItem("access_token");
     const backendUrl = import.meta.env.VITE_API_URL || "http://localhost:4000";
     const socket = io(backendUrl, { auth: { token } });
 
