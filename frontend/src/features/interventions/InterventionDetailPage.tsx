@@ -12,7 +12,7 @@ import { STATUS_LABELS, PRIORITY_LABELS } from "@/lib/constants";
 import { formatDate, formatDuration } from "@/lib/utils";
 import { getApiError } from "@/services/api";
 import { toast } from "sonner";
-import { ArrowLeft, MapPin, Clock, User, Calendar, Edit2, Trash2, Users } from "lucide-react";
+import { ArrowLeft, MapPin, Clock, User, Calendar, Edit2, Trash2, Users, PenLine, CheckCircle2 } from "lucide-react";
 import type { InterventionStatus } from "@/types";
 import { useAuth } from "@/features/auth/AuthContext";
 import { InterventionPhotos } from "./components/InterventionPhotos";
@@ -321,12 +321,41 @@ export default function InterventionDetailPage() {
 
       {/* Media Upload */}
       <div className="bg-card border border-border rounded-lg p-5 space-y-4">
-        <InterventionPhotos 
-          interventionId={id!} 
-          media={intervention.media || []} 
-          canEdit={true} // Tous les rôles peuvent voir l'UI pour l'instant (à affiner selon les besoins)
+        <InterventionPhotos
+          interventionId={id!}
+          media={(intervention.media || []).filter((m: any) => m.type === "PHOTO")}
+          canEdit={true}
         />
       </div>
+
+      {/* Client Signature */}
+      {(() => {
+        const signatures = (intervention.media || []).filter((m: any) => m.type === "SIGNATURE");
+        if (signatures.length === 0) return null;
+        const lastSignature = signatures[signatures.length - 1];
+        return (
+          <div className="bg-card border border-border rounded-lg p-5">
+            <div className="flex items-center gap-2 mb-4">
+              <PenLine className="w-4 h-4 text-muted-foreground" />
+              <div className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Signature client</div>
+              <span className="inline-flex items-center gap-1 text-xs font-medium text-green-600 bg-green-500/10 rounded-full px-2 py-0.5 ml-auto">
+                <CheckCircle2 className="w-3 h-3" /> Client signé
+              </span>
+            </div>
+            <div className="border border-border rounded-lg p-3 bg-background inline-block">
+              <img
+                src={lastSignature.url}
+                alt="Signature client"
+                className="max-h-40 object-contain"
+                onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+              />
+            </div>
+            {signatures.length > 1 && (
+              <p className="text-xs text-muted-foreground mt-2">{signatures.length} signature(s) enregistrée(s)</p>
+            )}
+          </div>
+        );
+      })()}
 
       {/* Timestamps */}
       <div className="text-xs text-muted-foreground flex gap-4">

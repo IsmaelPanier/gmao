@@ -49,6 +49,24 @@ export const AuthController = {
     }
   },
 
+  async forgotPassword(req: Request, res: Response, next: NextFunction) {
+    try {
+      const result = await AuthService.forgotPassword(req.body.email);
+      res.json(success(result));
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  async resetPassword(req: Request, res: Response, next: NextFunction) {
+    try {
+      const result = await AuthService.resetPassword(req.params.token, req.body.password);
+      res.json(success(result, "Mot de passe réinitialisé"));
+    } catch (err) {
+      next(err);
+    }
+  },
+
   async validateActivationToken(req: Request, res: Response, next: NextFunction) {
     try {
       const result = await AuthService.validateActivationToken(req.params.token);

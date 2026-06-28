@@ -6,6 +6,8 @@ import { env } from "../../config/env";
 import { AppError } from "../../shared/errors/AppError";
 import { JwtPayload } from "../../shared/types";
 import { LoginDto, RegisterDto } from "./auth.dto";
+import { sendMail, buildPasswordResetEmail } from "../../config/email";
+import { env } from "../../config/env";
 import { Role } from "@prisma/client";
 
 const SALT_ROUNDS = 10;
@@ -182,6 +184,63 @@ export const AuthService = {
     const user = await prisma.user.findUnique({ where: { id: userId } });
     if (!user) throw AppError.notFound("User not found");
     return sanitizeUser(user);
+  },
+
+  async forgotPassword(email: string) {
+    const user = await prisma.user.findUnique({ where: { email: email.toLowerCase() } });
+    // Réponse identique que l'user existe ou non (sécurité anti-enumération)
+    if (!user || !user.isActive) return { message: "Si cet email existe, un lien a été envoyé." };
+
+    // Invalider les anciens tokens
+    await prisma.passwordResetToken.updateMany({
+      where: { userId: user.id, used: false },
+      data: { used: true },
+    });
+
+    const token = uuidv4();
+    const expiresAt = new Date(Date.now() + 3_600_000); // 1 heure
+
+    await prisma.passwordResetToken.create({ data: { token, userId: user.id, expiresAt } });
+
+    const resetUrl = `${env.FRONTEND_URL}/reset-password/${token}`;
+    await sendMail({
+      to: user.email,
+      subject: "Réinitialisation de votre mot de passe — TEX Pro",
+      html: buildPasswordResetEmail(user.name, resetUrl),
+    });
+
+    return { message: "Si cet email existe, un lien a été envoyé." };
+  },
+
+  async resetPassword(token: string, password: string) {
+    const record = await prisma.passwordResetToken.findUnique({
+      where: { token },
+      include: { user: true },
+    });
+
+    if (!record || record.used || record.expiresAt < new Date()) {
+      throw AppError.badRequest("Ce lien de réinitialisation est invalide ou expiré.");
+    }
+
+    const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);
+
+    await prisma.$transaction([
+      prisma.user.update({
+        where: { id: record.userId },
+        data: { password: hashedPassword },
+      }),
+      prisma.passwordResetToken.update({
+        where: { id: record.id },
+        data: { used: true },
+      }),
+      // Révoquer tous les refresh tokens pour forcer reconnexion
+      prisma.refreshToken.updateMany({
+        where: { userId: record.userId },
+        data: { isRevoked: true },
+      }),
+    ]);
+
+    return { message: "Mot de passe réinitialisé avec succès." };
   },
 
   async validateActivationToken(token: string) {

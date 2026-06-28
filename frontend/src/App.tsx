@@ -16,6 +16,8 @@ import LandingPage from "@/features/landing/LandingPage";
 import LoginPage from "@/features/auth/LoginPage";
 import RegisterPage from "@/features/auth/RegisterPage";
 import SetPasswordPage from "@/features/auth/SetPasswordPage";
+import ForgotPasswordPage from "@/features/auth/ForgotPasswordPage";
+import ResetPasswordPage from "@/features/auth/ResetPasswordPage";
 import DashboardPage from "@/features/dashboard/DashboardPage";
 import InterventionsPage from "@/features/interventions/InterventionsPage";
 import InterventionDetailPage from "@/features/interventions/InterventionDetailPage";
@@ -46,6 +48,8 @@ export default function App() {
               <Route path="/login" element={<LoginPage />} />
               <Route path="/register" element={<RegisterPage />} />
               <Route path="/activate/:token" element={<SetPasswordPage />} />
+              <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+              <Route path="/reset-password/:token" element={<ResetPasswordPage />} />
 
               {/* Protected */}
               <Route path="/dashboard" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />

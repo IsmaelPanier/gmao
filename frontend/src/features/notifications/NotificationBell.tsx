@@ -1,4 +1,5 @@
-import React from "react";
+import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useNotifications } from "./NotificationContext";
 import { Bell } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -10,9 +11,19 @@ import { cn } from "@/lib/utils";
 
 export default function NotificationBell() {
   const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotifications();
+  const navigate = useNavigate();
+  const [open, setOpen] = useState(false);
+
+  function handleClick(n: typeof notifications[number]) {
+    if (!n.isRead) markAsRead(n.id);
+    if (n.link) {
+      setOpen(false);
+      navigate(n.link);
+    }
+  }
 
   return (
-    <Popover>
+    <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Button variant="ghost" size="icon" className="relative">
           <Bell className="w-5 h-5" />
@@ -41,12 +52,11 @@ export default function NotificationBell() {
                 <div
                   key={n.id}
                   className={cn(
-                    "flex flex-col gap-1 p-4 border-b last:border-b-0 cursor-pointer hover:bg-accent/50 transition-colors",
-                    !n.isRead && "bg-primary/5"
+                    "flex flex-col gap-1 p-4 border-b last:border-b-0 hover:bg-accent/50 transition-colors",
+                    !n.isRead && "bg-primary/5",
+                    n.link ? "cursor-pointer" : "cursor-default"
                   )}
-                  onClick={() => {
-                    if (!n.isRead) markAsRead(n.id);
-                  }}
+                  onClick={() => handleClick(n)}
                 >
                   <div className="flex items-start justify-between gap-2">
                     <span className={cn("text-sm font-medium", !n.isRead && "text-primary")}>{n.title}</span>

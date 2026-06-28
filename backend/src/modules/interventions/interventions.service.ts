@@ -7,6 +7,7 @@ import { NotificationsService } from "../notifications/notifications.service";
 import { getIO } from "../notifications/socket";
 import { minioClient, BUCKET_NAME } from "../../config/minio";
 import { env } from "../../config/env";
+import { sendMail, buildAssignmentEmail } from "../../config/email";
 import prisma from "../../config/database";
 import crypto from "crypto";
 import path from "path";
@@ -61,16 +62,29 @@ export const InterventionsService = {
     const number = await InterventionsRepository.getLastNumber();
     const intervention = await InterventionsRepository.create(dto, currentUser.sub, number);
     
-    // Notifications si assignation immédiate
+    // Notifications + emails si assignation immédiate
     if (dto.technicianIds && dto.technicianIds.length > 0) {
-      for (const techId of dto.technicianIds) {
+      const techs = await prisma.user.findMany({
+        where: { id: { in: dto.technicianIds } },
+        select: { id: true, name: true, email: true },
+      });
+      for (const tech of techs) {
         NotificationsService.sendNotification({
-          userId: techId,
+          userId: tech.id,
           type: "INFO",
           title: "Nouvelle Mission",
           message: `Vous avez été assigné à l'intervention ${number}`,
           link: `/interventions/${intervention.id}`,
         });
+        sendMail({
+          to: tech.email,
+          subject: `Nouvelle mission — ${number}`,
+          html: buildAssignmentEmail(tech.name, number, `${env.FRONTEND_URL}/interventions/${intervention.id}`, {
+            type: dto.type,
+            address: dto.address,
+            scheduledDate: dto.scheduledDate,
+          }),
+        }).catch(() => {}); // non-bloquant
       }
     }
     
@@ -127,18 +141,33 @@ export const InterventionsService = {
 
     const updated = await InterventionsRepository.update(id, dto);
 
-    // Notifications pour les nouveaux assignés (si modifiés)
+    // Notifications + emails pour les nouveaux assignés (si modifiés)
     if (dto.technicianIds) {
-      const oldTechs = intervention.technicians.map((t) => t.userId);
-      const newTechs = dto.technicianIds.filter((tId) => !oldTechs.includes(tId));
-      for (const techId of newTechs) {
-        NotificationsService.sendNotification({
-          userId: techId,
-          type: "INFO",
-          title: "Nouvelle Mission",
-          message: `Vous avez été assigné à l'intervention ${intervention.number}`,
-          link: `/interventions/${intervention.id}`,
+      const oldTechIds = intervention.technicians.map((t) => t.userId);
+      const newTechIds = dto.technicianIds.filter((tId) => !oldTechIds.includes(tId));
+      if (newTechIds.length > 0) {
+        const newTechs = await prisma.user.findMany({
+          where: { id: { in: newTechIds } },
+          select: { id: true, name: true, email: true },
         });
+        for (const tech of newTechs) {
+          NotificationsService.sendNotification({
+            userId: tech.id,
+            type: "INFO",
+            title: "Nouvelle Mission",
+            message: `Vous avez été assigné à l'intervention ${intervention.number}`,
+            link: `/interventions/${intervention.id}`,
+          });
+          sendMail({
+            to: tech.email,
+            subject: `Nouvelle mission — ${intervention.number}`,
+            html: buildAssignmentEmail(tech.name, intervention.number, `${env.FRONTEND_URL}/interventions/${intervention.id}`, {
+              type: intervention.type,
+              address: intervention.address ?? undefined,
+              scheduledDate: intervention.scheduledDate?.toISOString(),
+            }),
+          }).catch(() => {}); // non-bloquant
+        }
       }
     }
 

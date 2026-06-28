@@ -2,7 +2,7 @@ import { Router } from "express";
 import { AuthController } from "./auth.controller";
 import { authenticate } from "../../middlewares/auth.middleware";
 import { validate } from "../../middlewares/validate.middleware";
-import { loginSchema, registerSchema, refreshSchema, setPasswordSchema } from "./auth.dto";
+import { loginSchema, registerSchema, refreshSchema, setPasswordSchema, forgotPasswordSchema, resetPasswordSchema } from "./auth.dto";
 import { z } from "zod";
 
 const router = Router();
@@ -111,6 +111,10 @@ router.post("/logout", AuthController.logout);
  *         description: Success
  */
 router.get("/me", authenticate, AuthController.me);
+
+// Mot de passe oublié
+router.post("/forgot-password", validate(forgotPasswordSchema), AuthController.forgotPassword);
+router.post("/reset-password/:token", validate(resetPasswordSchema), AuthController.resetPassword);
 
 // Activation de compte (routes publiques)
 router.get("/activate/:token", AuthController.validateActivationToken);

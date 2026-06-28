@@ -43,6 +43,14 @@ const AuthService = {
   async activateAccount(token: string, password: string): Promise<void> {
     await api.post(`/auth/activate/${token}`, { password });
   },
+
+  async forgotPassword(email: string): Promise<void> {
+    await api.post("/auth/forgot-password", { email });
+  },
+
+  async resetPassword(token: string, password: string): Promise<void> {
+    await api.post(`/auth/reset-password/${token}`, { password });
+  },
 };
 
 export default AuthService;
