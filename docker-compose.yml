@@ -53,6 +53,7 @@ services:
       /bin/sh -c "
         mc alias set local http://minio:9000 ${MINIO_ACCESS_KEY:-gmao_admin} ${MINIO_SECRET_KEY:-changeme} --quiet;
         mc mb --ignore-existing local/${MINIO_BUCKET_NAME:-gmao-media};
+        mc anonymous set public local/${MINIO_BUCKET_NAME:-gmao-media};
         echo 'Bucket MinIO prêt.';
       "
     networks:
@@ -85,6 +86,7 @@ services:
       MINIO_ACCESS_KEY:       ${MINIO_ACCESS_KEY:-gmao_admin}
       MINIO_SECRET_KEY:       ${MINIO_SECRET_KEY:-changeme}
       MINIO_BUCKET_NAME:      ${MINIO_BUCKET_NAME:-gmao-media}
+      MINIO_PUBLIC_URL:       ${MINIO_PUBLIC_URL:-http://localhost:9000}
       SEED_DB:                ${SEED_DB:-false}
     volumes:
       - seed_flag:/var/lib/gmao

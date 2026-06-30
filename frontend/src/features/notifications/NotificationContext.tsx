@@ -45,10 +45,10 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
       fetchNotifications();
       
       const token = localStorage.getItem("access_token");
-      const backendUrl = import.meta.env.VITE_API_URL || "http://localhost:4000";
-      
-      const newSocket = io(backendUrl, {
+      // Connect via the same origin so Vite proxy (dev) and Nginx proxy (prod) both work
+      const newSocket = io(window.location.origin, {
         auth: { token },
+        path: "/socket.io",
       });
 
       newSocket.on("connect", () => {

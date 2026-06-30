@@ -16,6 +16,7 @@ services:
       NODE_ENV: development
       # Pour le backend, l'URL du frontend (CORS) est le port Vite exposé
       FRONTEND_URL: http://localhost:5173
+      MINIO_PUBLIC_URL: ${MINIO_PUBLIC_URL:-http://localhost:9000}
     volumes:
       - ./backend:/app/backend           # Monte le code source local
       - ./frontend:/app/frontend         # Contexte pour le workspace
