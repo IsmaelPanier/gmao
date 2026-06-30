@@ -71,6 +71,8 @@ export interface Intervention {
   startedAt?: string | null;
   completedAt?: string | null;
   notes?: string | null;
+  price?: number | null;
+  deposit?: number | null;
   createdAt: string;
   updatedAt: string;
   clientId: string;
@@ -145,6 +147,8 @@ export interface CreateInterventionForm {
   clientId: string;
   technicianIds: string[];
   notes?: string;
+  price?: number;
+  deposit?: number;
 }
 
 export interface UpdateInterventionForm {
@@ -159,4 +163,6 @@ export interface UpdateInterventionForm {
   durationActual?: number;
   notes?: string;
   technicianIds?: string[];
+  price?: number;
+  deposit?: number;
 }

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link, useSearchParams } from "react-router-dom";
 import InterventionsService from "@/services/interventions.service";
@@ -23,6 +23,7 @@ import { toast } from "sonner";
 import type { InterventionPriority } from "@/types";
 import { useAuth } from "@/features/auth/AuthContext";
 import { CreateClientDialog } from "@/features/clients/CreateClientDialog";
+import { Combobox } from "@/components/ui/combobox";
 
 const PAGE_SIZE = 20;
 
@@ -136,6 +137,23 @@ export default function InterventionsPage() {
     durationEstimated: 60,
     clientId: "", technicianIds: [] as string[], notes: "",
   });
+  const [newlyCreatedClient, setNewlyCreatedClient] = useState<{ id: string; firstName: string; lastName: string; address: string; type: string } | null>(null);
+
+  // Recherche dynamique de clients dans le formulaire de création
+  const [clientRawSearch, setClientRawSearch] = useState("");
+  const [clientSearch, setClientSearch] = useState("");
+
+  useEffect(() => {
+    const timer = setTimeout(() => setClientSearch(clientRawSearch), 300);
+    return () => clearTimeout(timer);
+  }, [clientRawSearch]);
+
+  const { data: clientSearchResults, isFetching: clientSearchLoading } = useQuery({
+    queryKey: ["clients-form-search", clientSearch],
+    queryFn: () => ClientsService.list({ q: clientSearch || undefined, limit: 30 }),
+    enabled: open,
+    staleTime: 10_000,
+  });
 
   const queryParams = {
     ...(filters.q && { q: filters.q }),
@@ -190,6 +208,36 @@ export default function InterventionsPage() {
   const items = data?.data ?? [];
   const total = data?.total ?? 0;
   const totalPages = data?.totalPages ?? 1;
+
+  const clientOptions = [
+    ...(newlyCreatedClient ? [{ value: newlyCreatedClient.id, label: `${newlyCreatedClient.firstName} ${newlyCreatedClient.lastName}`, sublabel: "Nouveau client" }] : []),
+    ...(clientSearchResults?.data
+      .filter((c) => !newlyCreatedClient || c.id !== newlyCreatedClient.id)
+      .map((c) => ({
+        value: c.id,
+        label: `${c.firstName} ${c.lastName}`,
+        sublabel: c.type === "ENTREPRISE" ? "Entreprise" : "Particulier",
+      })) ?? []),
+  ];
+
+  const applyPeriodFilter = (period: "today" | "week" | "month" | "year") => {
+    const now = new Date();
+    let from = "";
+    const to = new Date().toISOString().slice(0, 10);
+    if (period === "today") {
+      from = to;
+    } else if (period === "week") {
+      const start = new Date(now);
+      start.setDate(now.getDate() - now.getDay() + 1);
+      from = start.toISOString().slice(0, 10);
+    } else if (period === "month") {
+      from = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
+    } else if (period === "year") {
+      from = new Date(now.getFullYear(), 0, 1).toISOString().slice(0, 10);
+    }
+    const newFilters = { ...filters, dateFrom: from, dateTo: to, page: 1 };
+    applyFilters(newFilters);
+  };
 
   const SortableTh = ({ field, label, className = "" }: { field: SortBy; label: string; className?: string }) => (
     <th
@@ -249,23 +297,25 @@ export default function InterventionsPage() {
                     <div className="flex items-center justify-between">
                       <Label>Client *</Label>
                       <CreateClientDialog
-                        onSuccess={(id) => {
-                          const cli = clients?.data.find((c) => c.id === id);
-                          setForm({ ...form, clientId: id, address: cli?.address || "" });
+                        onSuccess={(id, client) => {
+                          setNewlyCreatedClient(client);
+                          setForm({ ...form, clientId: id, address: client.address || "" });
                         }}
                       />
                     </div>
-                    <Select value={form.clientId} onValueChange={(v) => {
-                      const cli = clients?.data.find((c) => c.id === v);
-                      setForm({ ...form, clientId: v, address: cli?.address || "" });
-                    }}>
-                      <SelectTrigger><SelectValue placeholder="Sélectionnez un client…" /></SelectTrigger>
-                      <SelectContent>
-                        {clients?.data.map((c) => (
-                          <SelectItem key={c.id} value={c.id}>{c.firstName} {c.lastName} ({c.type === "ENTREPRISE" ? "Entreprise" : "Particulier"})</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <Combobox
+                      options={clientOptions}
+                      value={form.clientId}
+                      onChange={(v) => {
+                        const cli = clientSearchResults?.data.find((c) => c.id === v) ?? (newlyCreatedClient?.id === v ? newlyCreatedClient : null);
+                        setForm({ ...form, clientId: v, address: cli?.address || "" });
+                      }}
+                      onSearchChange={setClientRawSearch}
+                      isLoading={clientSearchLoading}
+                      placeholder="Sélectionnez un client…"
+                      searchPlaceholder="Tapez un prénom, nom…"
+                      emptyText="Aucun client trouvé"
+                    />
                   </div>
                   <div className="sm:col-span-2 space-y-1.5">
                     <Label>Type d'intervention *</Label>
@@ -289,6 +339,14 @@ export default function InterventionsPage() {
                   <div className="space-y-1.5">
                     <Label>Durée estimée (min)</Label>
                     <Input type="number" min={0} value={form.durationEstimated} onChange={(e) => setForm({ ...form, durationEstimated: parseInt(e.target.value) || 0 })} />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Prix (€)</Label>
+                    <Input type="number" min={0} step={0.01} value={(form as any).price ?? ""} onChange={(e) => setForm({ ...form, price: parseFloat(e.target.value) || undefined } as any)} placeholder="0.00" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Acompte (€)</Label>
+                    <Input type="number" min={0} step={0.01} value={(form as any).deposit ?? ""} onChange={(e) => setForm({ ...form, deposit: parseFloat(e.target.value) || undefined } as any)} placeholder="0.00" />
                   </div>
                   <div className="space-y-1.5">
                     <Label>Date planifiée</Label>
@@ -338,6 +396,22 @@ export default function InterventionsPage() {
           )}
         </div>
       </div>
+
+      {/* Period quick-filters for technicians */}
+      {user?.role === "technician" && (
+        <div className="flex flex-wrap gap-2">
+          <span className="text-sm text-muted-foreground self-center">Période :</span>
+          {(["today", "week", "month", "year"] as const).map((p) => (
+            <button
+              key={p}
+              onClick={() => applyPeriodFilter(p)}
+              className="px-3 py-1 text-xs rounded-full border border-border hover:border-primary hover:text-primary transition-colors"
+            >
+              {{ today: "Aujourd'hui", week: "Cette semaine", month: "Ce mois", year: "Cette année" }[p]}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Search bar — always visible */}
       <div className="relative">

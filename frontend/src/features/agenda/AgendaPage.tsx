@@ -3,12 +3,13 @@ import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import timeGridPlugin from "@fullcalendar/timegrid";
 import interactionPlugin from "@fullcalendar/interaction";
+import frLocale from "@fullcalendar/core/locales/fr";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "@/services/api";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { Card } from "@/components/ui/card";
-import { Calendar as CalendarIcon } from "lucide-react";
+import { Calendar as CalendarIcon, AlertCircle } from "lucide-react";
 import { EventDropArg } from "@fullcalendar/core";
 import { io } from "socket.io-client";
 
@@ -20,8 +21,10 @@ export default function AgendaPage() {
   // Écoute les mises à jour d'interventions en temps réel
   useEffect(() => {
     const token = localStorage.getItem("access_token");
-    const backendUrl = import.meta.env.VITE_API_URL || "http://localhost:4000";
-    const socket = io(backendUrl, { auth: { token } });
+    const socket = io(window.location.origin, {
+      auth: { token },
+      path: "/socket.io",
+    });
 
     socket.on("intervention:updated", () => {
       queryClient.invalidateQueries({ queryKey: ["interventions"] });
@@ -30,13 +33,17 @@ export default function AgendaPage() {
     return () => { socket.disconnect(); };
   }, [queryClient]);
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, error } = useQuery({
     queryKey: ["interventions"],
     queryFn: async () => {
+      console.log("[AgendaPage] Fetching interventions...");
       const { data } = await api.get("/interventions?limit=500");
+      console.log("[AgendaPage] Data received:", data);
       return data;
     },
   });
+
+  console.log("[AgendaPage] Render state — isLoading:", isLoading, "| isError:", isError, "| data:", data, "| error:", error);
 
   const updateScheduleMutation = useMutation({
     mutationFn: (args: { id: string; scheduledDate: string; scheduledTime: string }) =>
@@ -66,6 +73,7 @@ export default function AgendaPage() {
   };
 
   const events = data?.data?.filter((i: any) => i.scheduledDate).map((i: any) => {
+    console.log("[AgendaPage] Mapping event:", i.number, i.scheduledDate);
     const date = new Date(i.scheduledDate);
     if (i.scheduledTime) {
       const [hours, minutes] = i.scheduledTime.split(":");
@@ -110,7 +118,7 @@ export default function AgendaPage() {
   };
 
   return (
-    <div className="space-y-8 animate-fade-in h-full flex flex-col">
+    <div className="space-y-8 animate-fade-in">
       <div>
         <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.2em] text-muted-foreground mb-2">
           <CalendarIcon className="w-4 h-4" /> Planification
@@ -118,40 +126,47 @@ export default function AgendaPage() {
         <h1 className="text-3xl font-bold tracking-tight">Agenda des Interventions</h1>
       </div>
 
-      <Card className="flex-1 p-4 min-h-[600px] overflow-hidden bg-background">
+      <Card className="p-4 bg-background border border-border rounded-lg">
         {isLoading ? (
-          <div className="h-full flex items-center justify-center">
+          <div className="flex items-center justify-center" style={{ height: 680 }}>
             <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
           </div>
-        ) : (
-          <div className="h-full calendar-container">
-            <FullCalendar
-              ref={calendarRef}
-              plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
-              initialView="dayGridMonth"
-              headerToolbar={{
-                left: "prev,next today",
-                center: "title",
-                right: "dayGridMonth,timeGridWeek,timeGridDay",
-              }}
-              locale="fr"
-              events={events}
-              editable={true}
-              droppable={true}
-              eventDrop={handleEventDrop}
-              eventClick={handleEventClick}
-              height="100%"
-              slotMinTime="07:00:00"
-              slotMaxTime="20:00:00"
-              allDaySlot={false}
-              businessHours={{
-                daysOfWeek: [1, 2, 3, 4, 5, 6],
-                startTime: "08:00",
-                endTime: "18:00",
-              }}
-              nowIndicator={true}
-            />
+        ) : isError ? (
+          <div className="flex flex-col items-center justify-center gap-3 text-destructive" style={{ height: 680 }}>
+            <AlertCircle className="w-10 h-10" />
+            <div className="font-semibold">Erreur lors du chargement des interventions</div>
+            <div className="text-sm text-muted-foreground font-mono">
+              {(error as any)?.message || String(error)}
+            </div>
           </div>
+        ) : (
+          <FullCalendar
+            ref={calendarRef}
+            plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
+            initialView="dayGridMonth"
+            headerToolbar={{
+              left: "prev,next today",
+              center: "title",
+              right: "dayGridMonth,timeGridWeek,timeGridDay",
+            }}
+            locales={[frLocale]}
+            locale="fr"
+            events={events}
+            editable={true}
+            droppable={true}
+            eventDrop={handleEventDrop}
+            eventClick={handleEventClick}
+            height={680}
+            slotMinTime="07:00:00"
+            slotMaxTime="20:00:00"
+            allDaySlot={false}
+            businessHours={{
+              daysOfWeek: [1, 2, 3, 4, 5, 6],
+              startTime: "08:00",
+              endTime: "18:00",
+            }}
+            nowIndicator={true}
+          />
         )}
       </Card>
     </div>

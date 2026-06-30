@@ -291,6 +291,35 @@ export default function InterventionDetailPage() {
         </div>
       </div>
 
+      {/* Paiement */}
+      {isManager && (intervention.price != null || intervention.deposit != null || true) && (
+        <div className="bg-card border border-border rounded-lg p-5">
+          <div className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3">Paiement</div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <div className="text-xs text-muted-foreground mb-1">Prix total</div>
+              <div className="text-lg font-semibold">
+                {intervention.price != null ? `${intervention.price.toFixed(2)} €` : <span className="text-muted-foreground text-sm">Non défini</span>}
+              </div>
+            </div>
+            <div>
+              <div className="text-xs text-muted-foreground mb-1">Acompte versé</div>
+              <div className="text-lg font-semibold">
+                {intervention.deposit != null ? `${intervention.deposit.toFixed(2)} €` : <span className="text-muted-foreground text-sm">Non versé</span>}
+              </div>
+            </div>
+            {intervention.price != null && intervention.deposit != null && (
+              <div className="col-span-2 pt-2 border-t border-border">
+                <div className="text-xs text-muted-foreground mb-1">Reste à payer</div>
+                <div className={`text-lg font-bold ${(intervention.price - intervention.deposit) > 0 ? "text-orange-500" : "text-green-500"}`}>
+                  {(intervention.price - intervention.deposit).toFixed(2)} €
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Description + Notes */}
       <div className="bg-card border border-border rounded-lg p-5 space-y-4">
         {intervention.description && (

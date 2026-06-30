@@ -180,6 +180,8 @@ model Intervention {
   startedAt        DateTime?
   completedAt      DateTime?
   notes            String?
+  price            Float?
+  deposit          Float?
   createdAt        DateTime             @default(now())
   updatedAt        DateTime             @updatedAt
 

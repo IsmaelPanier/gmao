@@ -11,7 +11,7 @@ import { getApiError } from "@/services/api";
 import { ClientType, HousingType } from "@/types";
 
 interface Props {
-  onSuccess?: (clientId: string) => void;
+  onSuccess?: (clientId: string, client: { id: string; firstName: string; lastName: string; address: string; type: string }) => void;
   trigger?: React.ReactNode;
 }
 
@@ -39,7 +39,7 @@ export function CreateClientDialog({ onSuccess, trigger }: Props) {
       setForm({ type: "PARTICULIER", companyName: "", siret: "", firstName: "", lastName: "", phone: "", email: "", address: "", city: "", housingType: "APPARTEMENT" });
       qc.invalidateQueries({ queryKey: ["clients"] });
       qc.invalidateQueries({ queryKey: ["clients-select"] });
-      if (onSuccess) onSuccess(newClient.id);
+      if (onSuccess) onSuccess(newClient.id, newClient);
     },
     onError: (err) => toast.error(getApiError(err)),
   });

@@ -29,6 +29,7 @@ router.use(authenticate);
  *         description: Success
  */
 router.get("/", requireRole("admin", "manager"), validate(listClientsSchema, "query"), ClientsController.list);
+router.get("/search", validate(listClientsSchema, "query"), ClientsController.list);
 
 /**
  * @swagger

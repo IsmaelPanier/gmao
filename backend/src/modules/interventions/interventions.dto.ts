@@ -11,6 +11,8 @@ export const createInterventionSchema = z.object({
   clientId: z.string().uuid("Invalid client ID"),
   technicianIds: z.array(z.string().uuid()).optional().default([]),
   notes: z.string().optional(),
+  price: z.number().optional(),
+  deposit: z.number().optional(),
 });
 
 export const updateInterventionSchema = z.object({
@@ -25,6 +27,8 @@ export const updateInterventionSchema = z.object({
   durationActual: z.coerce.number().int().min(0).optional(),
   notes: z.string().optional(),
   technicianIds: z.array(z.string().uuid()).optional(),
+  price: z.number().optional(),
+  deposit: z.number().optional(),
 });
 
 export const listInterventionsSchema = z.object({

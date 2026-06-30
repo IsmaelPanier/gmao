@@ -26,6 +26,7 @@ import ClientDetailPage from "@/features/clients/ClientDetailPage";
 import UsersPage from "@/features/users/UsersPage";
 import AgendaPage from "@/features/agenda/AgendaPage";
 import AuditPage from "@/features/audit/AuditPage";
+import NotFoundPage from "@/features/errors/NotFoundPage";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -61,7 +62,7 @@ export default function App() {
               <Route path="/planning" element={<ProtectedRoute><AgendaPage /></ProtectedRoute>} />
               <Route path="/audit" element={<ProtectedRoute roles={["admin"]}><AuditPage /></ProtectedRoute>} />
 
-              <Route path="*" element={<Navigate to="/" replace />} />
+              <Route path="*" element={<NotFoundPage />} />
             </Routes>
             <Toaster position="top-right" richColors />
           </NotificationProvider>
